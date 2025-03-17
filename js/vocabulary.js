@@ -1734,98 +1734,81 @@ function translateStatus(status) {
 }
 
 /**
- * 初始化匯入/匯出功能
+ * 初始化導入/導出功能
  */
 function initImportExportFeatures() {
-    console.log('初始化匯入/匯出功能');
+    console.log('初始化導入/導出功能');
     
-    // 綁定匯出按鈕事件
-    const exportJsonBtn = document.getElementById('exportJsonBtn');
-    const exportCsvBtn = document.getElementById('exportCsvBtn');
+    // 導入按鈕
     const importBtn = document.getElementById('importBtn');
-    const importFileInput = document.getElementById('importFileInput');
+    if (importBtn) {
+        importBtn.addEventListener('click', () => {
+            document.getElementById('importFileInput').click();
+        });
+    }
     
+    // 導入文件輸入
+    const importFileInput = document.getElementById('importFileInput');
+    if (importFileInput) {
+        importFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                importVocabulary(file);
+            }
+        });
+    }
+    
+    // 導出 JSON 按鈕
+    const exportJsonBtn = document.getElementById('exportJsonBtn');
     if (exportJsonBtn) {
-        console.log('找到 exportJsonBtn 元素，添加點擊事件');
-        // 移除可能存在的舊事件監聽器
-        const newExportJsonBtn = exportJsonBtn.cloneNode(true);
-        exportJsonBtn.parentNode.replaceChild(newExportJsonBtn, exportJsonBtn);
-        
-        // 添加新的事件監聽器
-        newExportJsonBtn.addEventListener('click', function() {
-            console.log('點擊了匯出 JSON 按鈕');
+        exportJsonBtn.addEventListener('click', () => {
             exportVocabulary('json');
         });
-    } else {
-        console.error('找不到 exportJsonBtn 元素');
     }
     
+    // 導出 CSV 按鈕
+    const exportCsvBtn = document.getElementById('exportCsvBtn');
     if (exportCsvBtn) {
-        console.log('找到 exportCsvBtn 元素，添加點擊事件');
-        // 移除可能存在的舊事件監聽器
-        const newExportCsvBtn = exportCsvBtn.cloneNode(true);
-        exportCsvBtn.parentNode.replaceChild(newExportCsvBtn, exportCsvBtn);
-        
-        // 添加新的事件監聽器
-        newExportCsvBtn.addEventListener('click', function() {
-            console.log('點擊了匯出 CSV 按鈕');
+        exportCsvBtn.addEventListener('click', () => {
             exportVocabulary('csv');
         });
-    } else {
-        console.error('找不到 exportCsvBtn 元素');
     }
     
-    if (importBtn && importFileInput) {
-        console.log('找到 importBtn 和 importFileInput 元素，添加點擊事件');
-        // 移除可能存在的舊事件監聽器
-        const newImportBtn = importBtn.cloneNode(true);
-        importBtn.parentNode.replaceChild(newImportBtn, importBtn);
+    // 添加匯入國中基礎2000單字按鈕
+    const headerActions = document.querySelector('#vocabulary .header-actions');
+    if (headerActions && !document.getElementById('importBasic2000Btn')) {
+        const importBasic2000Btn = document.createElement('button');
+        importBasic2000Btn.id = 'importBasic2000Btn';
+        importBasic2000Btn.className = 'primary-btn';
+        importBasic2000Btn.innerHTML = '<i class="fas fa-download"></i> 匯入國中基礎2000單字';
         
-        // 添加新的事件監聽器
-        newImportBtn.addEventListener('click', function() {
-            console.log('點擊了匯入按鈕，觸發檔案選擇');
-            importFileInput.click();
-        });
+        // 確保 importBasic2000Words 函數可用
+        if (typeof importBasic2000Words === 'function') {
+            importBasic2000Btn.addEventListener('click', importBasic2000Words);
+            headerActions.appendChild(importBasic2000Btn);
+            console.log('已添加匯入國中基礎2000單字按鈕');
+        } else {
+            console.error('找不到 importBasic2000Words 函數，嘗試載入 import_basic_2000.js');
+            
+            // 動態載入 import_basic_2000.js
+            const script = document.createElement('script');
+            script.src = 'js/import_basic_2000.js';
+            script.onload = function() {
+                if (typeof importBasic2000Words === 'function') {
+                    importBasic2000Btn.addEventListener('click', importBasic2000Words);
+                    headerActions.appendChild(importBasic2000Btn);
+                    console.log('已載入 import_basic_2000.js 並添加匯入按鈕');
+                } else {
+                    console.error('載入 import_basic_2000.js 後仍找不到 importBasic2000Words 函數');
+                }
+            };
+            script.onerror = function() {
+                console.error('載入 import_basic_2000.js 失敗');
+            };
+            document.head.appendChild(script);
+        }
     } else {
-        console.error('找不到匯入按鈕或檔案輸入元素');
-        if (!importBtn) console.error('找不到 importBtn 元素');
-        if (!importFileInput) console.error('找不到 importFileInput 元素');
-    }
-    
-    if (importFileInput) {
-        console.log('找到 importFileInput 元素，添加 change 事件');
-        // 移除可能存在的舊事件監聽器
-        const newImportFileInput = importFileInput.cloneNode(true);
-        importFileInput.parentNode.replaceChild(newImportFileInput, importFileInput);
-        
-        // 添加新的事件監聽器
-        newImportFileInput.addEventListener('change', async function(e) {
-            const file = e.target.files[0];
-            if (!file) {
-                console.log('沒有選擇檔案');
-                return;
-            }
-            
-            console.log('選擇了檔案:', file.name);
-            
-            try {
-                console.log('開始匯入檔案');
-                const result = await importVocabulary(file);
-                console.log('匯入結果:', result);
-                alert(result.message);
-                
-                // 重新載入詞彙列表
-                loadVocabularyData(currentVocabList);
-            } catch (error) {
-                console.error('匯入過程中發生錯誤:', error);
-                alert(error.message || '匯入失敗');
-            }
-            
-            // 清除檔案輸入，允許重複選擇相同檔案
-            newImportFileInput.value = '';
-        });
-    } else {
-        console.error('找不到 importFileInput 元素');
+        console.log('已存在匯入國中基礎2000單字按鈕或找不到 header-actions 容器');
     }
 }
 

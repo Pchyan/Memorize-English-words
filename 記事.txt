@@ -1,0 +1,15 @@
+"建立聯想" 頁面中的建議聯想可以用 Google Gemini API 產生
+
+hnb16441@bcooq.com
+
+@Web 
+@codebase
+"建立聯想" 頁面中的建議聯想可以用 Google Gemini API 產生
+
+AIzaSyBJTy0EoemY0-zfUvpUNl3vOQleggT4l5Q
+
+匯入後只有1741字，不到2000字
+請將 @https://www.soeasyedu.com.tw/blog/learning-tips/english-vocabularies 此頁面的單字加入
+
+移除現有單字
+再將 @https://www.soeasyedu.com.tw/blog/learning-tips/english-vocabularies 此網頁的單字2005字全數加入

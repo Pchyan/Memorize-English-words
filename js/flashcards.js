@@ -269,6 +269,12 @@ function showCard(index) {
     if (assocInput) {
         assocInput.value = card.associations || '';
     }
+    
+    // 檢查聯想面板是否處於活動狀態，如果是則更新聯想面板內容
+    const associationPanel = document.getElementById('associationPanel');
+    if (associationPanel && associationPanel.classList.contains('active')) {
+        updateAssociationPanel();
+    }
 }
 
 /**
@@ -460,9 +466,18 @@ function initLearningTools() {
     // 檢查句子按鈕
     const checkBtn = document.querySelector('.check-btn');
     if (checkBtn) {
-        checkBtn.addEventListener('click', (e) => {
+        checkBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
-            checkSentence();
+            await checkSentence();
+        });
+    }
+    
+    // AI造句按鈕
+    const aiSentenceBtn = document.querySelector('.ai-sentence-btn');
+    if (aiSentenceBtn) {
+        aiSentenceBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            await generateAISentences();
         });
     }
     
@@ -574,7 +589,13 @@ function updateAssociationPanel() {
         }
     }
     
-    // 更新建議聯想按鈕
+    // 顯示加載中提示
+    const suggestionsContainer = document.querySelector('.suggestions');
+    if (suggestionsContainer) {
+        suggestionsContainer.innerHTML = '<div class="loading-suggestion">正在生成聯想建議...</div>';
+    }
+    
+    // 更新建議聯想按鈕 - 使用異步函數
     updateSuggestionButtons(card);
 }
 
@@ -616,6 +637,16 @@ function updateContextPanel() {
             const noContext = document.createElement('p');
             noContext.textContent = '沒有相關上下文用法';
             contextSection.appendChild(noContext);
+            
+            // 添加AI補充常見用法按鈕
+            const aiContextBtn = document.createElement('button');
+            aiContextBtn.className = 'ai-context-btn';
+            aiContextBtn.innerHTML = '<i class="fas fa-robot"></i> AI補充常見用法';
+            aiContextBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await generateAIContexts(card);
+            });
+            contextSection.appendChild(aiContextBtn);
         }
     }
     
@@ -630,6 +661,13 @@ function updateContextPanel() {
     if (sentenceFeedback) {
         sentenceFeedback.textContent = '';
         sentenceFeedback.className = 'feedback';
+    }
+    
+    // 清空並隱藏 AI 造句區域
+    const aiSentenceExamples = document.getElementById('aiSentenceExamples');
+    if (aiSentenceExamples) {
+        aiSentenceExamples.innerHTML = '';
+        aiSentenceExamples.classList.remove('active');
     }
 }
 
@@ -845,9 +883,9 @@ function showNotification(message, type = 'info') {
 }
 
 /**
- * 檢查用戶造的句子
+ * 檢查用戶造句
  */
-function checkSentence() {
+async function checkSentence() {
     if (cards.length === 0 || currentCardIndex < 0 || currentCardIndex >= cards.length) {
         return;
     }
@@ -860,19 +898,164 @@ function checkSentence() {
     const sentence = sentenceInput.value.trim();
     const currentWord = cards[currentCardIndex].word.toLowerCase();
     
-    // 簡單檢查:句子是否包含當前單字
+    // 基本檢查
     if (sentence === '') {
         sentenceFeedback.textContent = '請輸入一個句子';
         sentenceFeedback.className = 'feedback error';
+        return;
     } else if (!sentence.toLowerCase().includes(currentWord.toLowerCase())) {
         sentenceFeedback.textContent = `您的句子需要包含單字 "${cards[currentCardIndex].word}"`;
         sentenceFeedback.className = 'feedback error';
+        return;
     } else if (sentence.split(' ').length < 3) {
         sentenceFeedback.textContent = '請輸入一個完整的句子';
         sentenceFeedback.className = 'feedback error';
+        return;
+    }
+    
+    // 顯示加載中
+    sentenceFeedback.textContent = '正在評估您的句子...';
+    sentenceFeedback.className = 'feedback loading';
+    
+    try {
+        // 使用 Gemini API 評估句子
+        const feedback = await evaluateSentenceWithGemini(sentence, cards[currentCardIndex]);
+        
+        if (feedback) {
+            sentenceFeedback.innerHTML = feedback;
+            sentenceFeedback.className = 'feedback success';
     } else {
+            // 如果 API 調用失敗，使用基本反饋
         sentenceFeedback.textContent = '很好！您的句子使用了正確的單字。';
         sentenceFeedback.className = 'feedback success';
+        }
+    } catch (error) {
+        console.error('評估句子時出錯:', error);
+        sentenceFeedback.textContent = '很好！您的句子使用了正確的單字。';
+        sentenceFeedback.className = 'feedback success';
+    }
+}
+
+/**
+ * 使用 Google Gemini API 評估用戶造句
+ * @param {string} sentence - 用戶輸入的句子
+ * @param {Object} card - 當前卡片
+ * @returns {Promise<string>} - 評估反饋
+ */
+async function evaluateSentenceWithGemini(sentence, card) {
+    // 從 localStorage 獲取 API 密鑰
+    const API_KEY = getGeminiApiKey();
+    
+    if (!API_KEY) {
+        console.warn('未設置 Gemini API 密鑰，無法使用 Gemini API 評估句子');
+        return null;
+    }
+    
+    const word = card.word;
+    const meaning = card.meaning || '';
+    const partOfSpeech = card.partOfSpeech || '';
+    
+    // 構建提示詞
+    const prompt = `
+    請評估以下英文句子的正確性和自然度，並提供改進建議。
+    
+    單字資訊：
+    - 單字：${word}
+    - 詞性：${partOfSpeech}
+    - 中文意思：${meaning}
+    
+    用戶造的句子：
+    "${sentence}"
+    
+    請評估以下幾點：
+    1. 句子是否正確使用了單字 "${word}"
+    2. 單字的詞性使用是否正確
+    3. 句子的語法是否正確
+    4. 句子是否自然流暢
+    5. 如有需要，提供改進建議
+    
+    請用中文回答，以友善、鼓勵的語氣給出評價。回答格式如下：
+    
+    評分：[1-5顆星，5顆星為最佳]
+    評價：[簡短評價]
+    改進建議：[如有需要，提供1-2個改進建議]
+    
+    請確保回答簡潔明瞭，總字數不超過100字。
+    `;
+    
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${API_KEY}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                contents: [
+                    {
+                        parts: [
+                            {
+                                text: prompt
+                            }
+                        ]
+                    }
+                ],
+                generationConfig: {
+                    temperature: 0.7,
+                    topK: 40,
+                    topP: 0.95,
+                    maxOutputTokens: 1024,
+                }
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`API 請求失敗: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log('Gemini API 回應:', data);
+        
+        if (data.candidates && data.candidates.length > 0 && 
+            data.candidates[0].content && 
+            data.candidates[0].content.parts && 
+            data.candidates[0].content.parts.length > 0) {
+            
+            const text = data.candidates[0].content.parts[0].text;
+            
+            // 格式化回應
+            let formattedFeedback = text
+                .replace(/評分：/g, '<strong>評分：</strong>')
+                .replace(/評價：/g, '<strong>評價：</strong>')
+                .replace(/改進建議：/g, '<strong>改進建議：</strong>')
+                .replace(/\n/g, '<br>');
+            
+            return formattedFeedback;
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('調用 Gemini API 評估句子時出錯:', error);
+        return null;
+    }
+}
+
+// 從 localStorage 獲取 Gemini API 密鑰
+function getGeminiApiKey() {
+    return localStorage.getItem('geminiApiKey') || '';
+}
+
+// 關閉面板的事件處理函數
+function closePanelHandler(e) {
+    console.log('點擊關閉面板按鈕');
+    e.stopPropagation();
+    e.preventDefault();
+    
+    const panel = this.closest('.learning-panel');
+    if (panel) {
+        console.log(`關閉面板: ${panel.id}`);
+        panel.classList.remove('active');
+    } else {
+        console.error('找不到要關閉的面板');
     }
 }
 
@@ -900,8 +1083,8 @@ function translatePartOfSpeech(partOfSpeech) {
  * 更新建議聯想按鈕
  * @param {Object} card - 當前卡片
  */
-function updateSuggestionButtons(card) {
-    console.log('更新建議聯想按鈕');
+async function updateSuggestionButtons(card) {
+    console.log('更新建議聯想按鈕，單字:', card.word);
     
     const suggestionsContainer = document.querySelector('.suggestions');
     if (!suggestionsContainer) {
@@ -912,8 +1095,8 @@ function updateSuggestionButtons(card) {
     // 清空現有建議
     suggestionsContainer.innerHTML = '';
     
-    // 如果是"沒有單字"的卡片，不顯示建議
-    if (card.id === 0 || card.word === '沒有單字') {
+    // 如果沒有卡片數據，顯示提示信息
+    if (!card || !card.word || card.word === '沒有單字') {
         const noSuggestion = document.createElement('p');
         noSuggestion.textContent = '請先添加單字';
         noSuggestion.className = 'no-suggestion';
@@ -921,42 +1104,67 @@ function updateSuggestionButtons(card) {
         return;
     }
     
-    // 根據單字生成建議聯想
-    const suggestions = generateSuggestions(card);
-    console.log('生成的建議聯想:', suggestions);
+    // 顯示加載中提示
+    const loadingElement = document.createElement('p');
+    loadingElement.textContent = '正在生成聯想建議...';
+    loadingElement.className = 'loading-suggestion';
+    suggestionsContainer.appendChild(loadingElement);
     
-    // 添加建議按鈕
+    try {
+        // 生成建議聯想
+        const suggestions = await generateSuggestions(card);
+        console.log(`為單字 "${card.word}" 生成的建議聯想:`, suggestions);
+        
+        // 清空加載提示
+        suggestionsContainer.innerHTML = '';
+        
+        // 為每個建議創建按鈕
+        if (suggestions && suggestions.length > 0) {
     suggestions.forEach(suggestion => {
         const btn = document.createElement('button');
         btn.className = 'suggestion-btn';
         btn.textContent = suggestion;
         
-        // 添加點擊事件 - 使用箭頭函數確保正確的 this 上下文
-        btn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            e.preventDefault();
+                // 添加點擊事件
+                btn.addEventListener('click', () => {
             console.log('點擊建議聯想按鈕:', suggestion);
-            
             const assocInput = document.getElementById('assocInput');
-            if (assocInput && !assocInput.disabled) {
-                // 檢查當前值是否為空
-                if (assocInput.value && assocInput.value.trim() !== '') {
-                    assocInput.value += '\n';
-                }
-                assocInput.value += suggestion;
+                    if (!assocInput) {
+                        console.error('找不到聯想輸入框');
+                        return;
+                    }
+                    
+                    // 如果輸入框已有內容，添加換行
+                    if (assocInput.value && !assocInput.value.endsWith('\n')) {
+                        assocInput.value += '\n';
+                    }
+                    
+                    // 添加建議到輸入框
+                    assocInput.value += suggestion;
+                });
                 
-                // 聚焦輸入框並滾動到底部
-                assocInput.focus();
-                assocInput.scrollTop = assocInput.scrollHeight;
-            } else {
-                console.error('找不到聯想輸入框或輸入框已禁用');
-            }
-        });
-        
+                // 添加按鈕到容器
         suggestionsContainer.appendChild(btn);
     });
+        } else {
+            // 如果沒有生成建議，顯示錯誤信息
+            const errorElement = document.createElement('p');
+            errorElement.textContent = '無法生成建議，請稍後再試';
+            errorElement.className = 'error';
+            suggestionsContainer.appendChild(errorElement);
+        }
+    } catch (error) {
+        console.error('生成建議聯想時出錯:', error);
+        
+        // 顯示錯誤信息
+        suggestionsContainer.innerHTML = '';
+        const errorElement = document.createElement('p');
+        errorElement.textContent = '生成建議時出錯，請稍後再試';
+        errorElement.className = 'error';
+        suggestionsContainer.appendChild(errorElement);
+    }
     
-    // 確保建議區域可見
+    // 設置容器樣式
     suggestionsContainer.style.display = 'flex';
     suggestionsContainer.style.flexWrap = 'wrap';
     suggestionsContainer.style.gap = '8px';
@@ -967,13 +1175,34 @@ function updateSuggestionButtons(card) {
  * @param {Object} card - 當前卡片
  * @returns {Array} - 建議聯想數組
  */
-function generateSuggestions(card) {
-    const suggestions = [];
+async function generateSuggestions(card) {
     const word = card.word;
     
-    console.log('為單字生成聯想建議:', word, card);
+    console.log('為單字生成聯想建議:', word);
     
-    // 如果是示例單字 "Apple"，提供特定的聯想
+    // 如果是空單字或"沒有單字"，返回空數組
+    if (!word || word === '沒有單字') {
+        return [];
+    }
+    
+    // 嘗試使用 Google Gemini API 生成建議聯想
+    try {
+        const geminiSuggestions = await getGeminiSuggestions(card);
+        if (geminiSuggestions && geminiSuggestions.length > 0) {
+            console.log('成功從 Gemini API 獲取建議');
+            return geminiSuggestions;
+        }
+    } catch (error) {
+        console.error('使用 Gemini API 生成聯想時出錯:', error);
+        // 如果 API 調用失敗，使用備用方法生成聯想
+    }
+    
+    console.log('使用備用方法生成聯想建議');
+    
+    // 備用方法：根據單字特性生成聯想
+    const suggestions = [];
+    
+    // 根據單字特定情況生成建議
     if (word.toLowerCase() === 'apple') {
         suggestions.push('紅色的水果');
         suggestions.push('像「A」一樣是單字的開頭');
@@ -982,10 +1211,7 @@ function generateSuggestions(card) {
         suggestions.push('蘋果咬一口的聲音「喀滋」');
         suggestions.push('蘋果公司的標誌');
         return suggestions;
-    }
-    
-    // 如果是示例單字 "example"，提供特定的聯想
-    if (word.toLowerCase() === 'example') {
+    } else if (word.toLowerCase() === 'example') {
         suggestions.push('舉例說明某事的情況');
         suggestions.push('「ex-」前綴表示「出來」');
         suggestions.push('想像一個老師舉例的場景');
@@ -1024,6 +1250,12 @@ function generateSuggestions(card) {
         suggestions.push(`${word} 的程度或頻率`);
         suggestions.push(`${word} 的時間或地點特性`);
         suggestions.push(`${word} 與其他副詞的區別`);
+    } else {
+        // 如果沒有詞性或詞性不明確，添加通用聯想
+        suggestions.push(`${word} 讓我想到的畫面`);
+        suggestions.push(`${word} 的特點或特性`);
+        suggestions.push(`如何記住 ${word} 的拼寫`);
+        suggestions.push(`${word} 在日常生活中的應用`);
     }
     
     // 添加字母相關聯想
@@ -1062,17 +1294,1037 @@ function generateSuggestions(card) {
     return suggestions;
 }
 
-// 關閉面板的事件處理函數
-function closePanelHandler(e) {
-    console.log('點擊關閉面板按鈕');
-    e.stopPropagation();
-    e.preventDefault();
+/**
+ * 使用 Google Gemini API 生成建議聯想
+ * @param {Object} card - 當前卡片
+ * @returns {Promise<Array>} - 建議聯想數組
+ */
+async function getGeminiSuggestions(card) {
+    // 從 localStorage 獲取 API 密鑰
+    const API_KEY = getGeminiApiKey();
     
-    const panel = this.closest('.learning-panel');
-    if (panel) {
-        console.log(`關閉面板: ${panel.id}`);
-        panel.classList.remove('active');
-    } else {
-        console.error('找不到要關閉的面板');
+    if (!API_KEY) {
+        console.warn('未設置 Gemini API 密鑰，無法使用 Gemini API 生成聯想');
+        return null;
     }
+    
+    const word = card.word;
+    const meaning = card.meaning || '';
+    const partOfSpeech = card.partOfSpeech || '';
+    const phonetic = card.phonetic || '';
+    const examples = card.examples && card.examples.length > 0 ? card.examples[0] : '';
+    
+    // 構建提示詞
+    const prompt = `
+    請為英文單字 "${word}" 生成 6-8 個有助於記憶的聯想提示。
+    
+    單字資訊：
+    - 詞性：${partOfSpeech}
+    - 發音：${phonetic}
+    - 中文意思：${meaning}
+    - 例句：${examples}
+    
+    請生成創意且多樣化的聯想，包括：
+    1. 發音聯想
+    2. 拼寫特點
+    3. 視覺化記憶方法
+    4. 與中文意思的連結
+    5. 與例句相關的場景
+    6. 其他有助記憶的技巧
+    
+    請直接列出聯想提示，每行一個，不要有編號或其他標記。每個聯想控制在 20 個中文字以內。
+    `;
+    
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${API_KEY}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                contents: [
+                    {
+                        parts: [
+                            {
+                                text: prompt
+                            }
+                        ]
+                    }
+                ],
+                generationConfig: {
+                    temperature: 0.7,
+                    topK: 40,
+                    topP: 0.95,
+                    maxOutputTokens: 1024,
+                }
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`API 請求失敗: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log('Gemini API 回應:', data);
+        
+        if (data.candidates && data.candidates.length > 0 && 
+            data.candidates[0].content && 
+            data.candidates[0].content.parts && 
+            data.candidates[0].content.parts.length > 0) {
+            
+            const text = data.candidates[0].content.parts[0].text;
+            // 將回應文本按行分割，過濾空行
+            const lines = text.split('\n')
+                .map(line => line.trim())
+                .filter(line => line && !line.startsWith('-') && !line.match(/^\d+\./));
+            
+            console.log('從 Gemini 獲取的聯想建議:', lines);
+            return lines.slice(0, 8); // 最多返回8個建議
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('調用 Gemini API 時出錯:', error);
+        return null;
+    }
+}
+
+/**
+ * 使用 Google Gemini API 生成 AI 造句
+ */
+async function generateAISentences() {
+    if (cards.length === 0 || currentCardIndex < 0 || currentCardIndex >= cards.length) {
+        return;
+    }
+    
+    const aiSentenceExamples = document.getElementById('aiSentenceExamples');
+    if (!aiSentenceExamples) {
+        console.error('找不到 AI 造句例句容器');
+        return;
+    }
+    
+    // 檢查 API 密鑰
+    const API_KEY = getGeminiApiKey();
+    if (!API_KEY) {
+        aiSentenceExamples.innerHTML = '<div class="loading-suggestion error">請先在首頁設置 Google Gemini API 密鑰</div>';
+        aiSentenceExamples.classList.add('active');
+        return;
+    }
+    
+    // 顯示加載中
+    aiSentenceExamples.innerHTML = '<div class="loading-suggestion">正在生成例句...</div>';
+    aiSentenceExamples.classList.add('active');
+    
+    try {
+        console.log('開始為單字生成 AI 造句:', cards[currentCardIndex].word);
+        
+        // 使用 Gemini API 生成例句
+        const sentences = await getAISentences(cards[currentCardIndex]);
+        
+        if (sentences && sentences.length > 0) {
+            console.log('成功獲取例句，數量:', sentences.length);
+            
+            // 清空加載提示
+            aiSentenceExamples.innerHTML = '';
+            
+            // 添加標題
+            const title = document.createElement('h5');
+            title.innerHTML = '<i class="fas fa-robot"></i> AI 生成的例句：';
+            aiSentenceExamples.appendChild(title);
+            
+            // 添加例句
+            sentences.forEach(sentence => {
+                const exampleDiv = document.createElement('div');
+                exampleDiv.className = 'example-sentence';
+                exampleDiv.textContent = sentence;
+                
+                // 添加"使用"按鈕
+                const useBtn = document.createElement('button');
+                useBtn.className = 'use-btn';
+                useBtn.textContent = '使用';
+                useBtn.addEventListener('click', () => {
+                    const sentenceInput = document.getElementById('sentenceInput');
+                    if (sentenceInput) {
+                        sentenceInput.value = sentence;
+                        // 聚焦輸入框
+                        sentenceInput.focus();
+                    }
+                });
+                
+                exampleDiv.appendChild(useBtn);
+                aiSentenceExamples.appendChild(exampleDiv);
+            });
+        } else {
+            console.warn('未能獲取例句');
+            aiSentenceExamples.innerHTML = `
+                <div class="loading-suggestion error">
+                    無法生成例句，可能的原因：
+                    <ul>
+                        <li>API 密鑰無效或已過期</li>
+                        <li>API 請求超出限制</li>
+                        <li>網絡連接問題</li>
+                    </ul>
+                    <p>請檢查瀏覽器控制台獲取詳細錯誤信息</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('生成 AI 造句時出錯:', error);
+        aiSentenceExamples.innerHTML = `
+            <div class="loading-suggestion error">
+                生成例句時出錯: ${error.message}
+                <p>請檢查瀏覽器控制台獲取詳細錯誤信息</p>
+            </div>
+        `;
+    }
+}
+
+/**
+ * 使用 Google Gemini API 獲取 AI 造句
+ * @param {Object} card - 當前卡片
+ * @returns {Promise<Array>} - 例句數組
+ */
+async function getAISentences(card) {
+    // 從 localStorage 獲取 API 密鑰
+    const API_KEY = getGeminiApiKey();
+    
+    console.log('API 密鑰狀態:', API_KEY ? '已設置' : '未設置');
+    
+    if (!API_KEY) {
+        console.warn('未設置 Gemini API 密鑰，無法使用 Gemini API 生成例句');
+        return null;
+    }
+    
+    const word = card.word;
+    const meaning = card.meaning || '';
+    const partOfSpeech = card.partOfSpeech || '';
+    
+    console.log('準備為單字生成例句:', word, '詞性:', partOfSpeech, '意思:', meaning);
+    
+    // 構建提示詞
+    const prompt = `
+    請為英文單字 "${word}" 生成 5 個不同難度和風格的例句。
+    
+    單字資訊：
+    - 詞性：${partOfSpeech}
+    - 中文意思：${meaning}
+    
+    請生成以下類型的例句：
+    1. 一個簡單的基礎例句，適合初學者
+    2. 一個中等難度的例句，包含一些常見搭配
+    3. 一個高級例句，使用更複雜的句型
+    4. 一個日常對話中的例句
+    5. 一個正式或學術場合的例句
+    
+    請確保每個例句都正確使用了單字 "${word}"，並且句子自然流暢。
+    請直接列出例句，每行一個，不要有編號或其他標記。
+    `;
+    
+    console.log('發送到 Gemini API 的提示詞:', prompt);
+    
+    try {
+        console.log('開始發送 API 請求...');
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${API_KEY}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                contents: [
+                    {
+                        parts: [
+                            {
+                                text: prompt
+                            }
+                        ]
+                    }
+                ],
+                generationConfig: {
+                    temperature: 0.7,
+                    topK: 40,
+                    topP: 0.95,
+                    maxOutputTokens: 1024,
+                }
+            })
+        });
+        
+        console.log('API 回應狀態:', response.status, response.statusText);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('API 錯誤詳情:', errorText);
+            throw new Error(`API 請求失敗: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log('Gemini API 完整回應:', data);
+        
+        // 檢查回應結構
+        if (!data.candidates || data.candidates.length === 0) {
+            console.error('API 回應中沒有 candidates 數組或為空');
+            return null;
+        }
+        
+        if (!data.candidates[0].content) {
+            console.error('API 回應中沒有 content 對象');
+            return null;
+        }
+        
+        if (!data.candidates[0].content.parts || data.candidates[0].content.parts.length === 0) {
+            console.error('API 回應中沒有 parts 數組或為空');
+            return null;
+        }
+        
+        const text = data.candidates[0].content.parts[0].text;
+        if (!text) {
+            console.error('API 回應中沒有文本內容');
+            return null;
+        }
+        
+        console.log('從 API 獲取的原始文本:', text);
+        
+        // 將回應文本按行分割，過濾空行和編號行
+        const lines = text.split('\n')
+            .map(line => line.trim())
+            .filter(line => line && !line.match(/^\d+\./) && !line.startsWith('-'));
+        
+        console.log('處理後的例句數組:', lines);
+        
+        if (lines.length === 0) {
+            console.warn('處理後的例句數組為空');
+            return null;
+        }
+        
+        return lines;
+    } catch (error) {
+        console.error('調用 Gemini API 時出錯:', error);
+        return null;
+    }
+}
+
+/**
+ * 使用 Google Gemini API 生成單字的常見用法
+ * @param {Object} card - 當前卡片
+ */
+async function generateAIContexts(card) {
+    if (!card || !card.word) {
+        console.error('無法生成常見用法：無效的卡片數據');
+        return;
+    }
+    
+    const contextSection = document.querySelector('.context-section');
+    if (!contextSection) {
+        console.error('找不到上下文容器');
+        return;
+    }
+    
+    // 檢查 API 密鑰
+    const API_KEY = getGeminiApiKey();
+    if (!API_KEY) {
+        contextSection.innerHTML = '<div class="loading-suggestion error">請先在首頁設置 Google Gemini API 密鑰</div>';
+        return;
+    }
+    
+    // 顯示加載中
+    contextSection.innerHTML = '<div class="loading-suggestion">正在生成常見用法...</div>';
+    
+    try {
+        console.log('開始為單字生成常見用法:', card.word);
+        
+        // 使用 Gemini API 生成常見用法
+        const contexts = await getAIContexts(card);
+        
+        if (contexts && contexts.length > 0) {
+            console.log('成功獲取常見用法，數量:', contexts.length);
+            
+            // 清空加載提示
+            contextSection.innerHTML = '';
+            
+            // 添加標題
+            const title = document.createElement('h4');
+            title.innerHTML = '常見用法：';
+            contextSection.appendChild(title);
+            
+            // 添加常見用法
+            contexts.forEach(context => {
+                const contextItem = document.createElement('div');
+                contextItem.className = 'context-item';
+                
+                const phrase = document.createElement('p');
+                phrase.innerHTML = `<strong>${context.phrase}</strong> - ${context.meaning}`;
+                
+                const example = document.createElement('p');
+                example.className = 'example';
+                example.textContent = context.example;
+                
+                contextItem.appendChild(phrase);
+                contextItem.appendChild(example);
+                contextSection.appendChild(contextItem);
+            });
+            
+            // 更新卡片數據
+            card.contexts = contexts;
+            
+            // 保存到全局數據
+            if (window.appData && window.appData.vocabulary) {
+                const wordId = card.id;
+                const vocabIndex = window.appData.vocabulary.findIndex(item => item.id === wordId);
+                
+                if (vocabIndex !== -1) {
+                    console.log(`更新全局數據中 ID 為 ${wordId} 的單字常見用法`);
+                    window.appData.vocabulary[vocabIndex].contexts = contexts;
+                    
+                    // 儲存到本地儲存
+                    try {
+                        localStorage.setItem('vocabMasterData', JSON.stringify(window.appData));
+                        console.log('數據已直接保存到本地儲存');
+                        
+                        // 顯示通知
+                        showNotification('常見用法已保存', 'success');
+                    } catch (error) {
+                        console.error('保存到本地儲存時出錯:', error);
+                        showNotification('保存失敗：' + error.message, 'error');
+                    }
+                }
+            }
+        } else {
+            console.warn('未能獲取常見用法');
+            contextSection.innerHTML = `
+                <h4>常見用法：</h4>
+                <div class="loading-suggestion error">
+                    無法生成常見用法，可能的原因：
+                    <ul>
+                        <li>API 密鑰無效或已過期</li>
+                        <li>API 請求超出限制</li>
+                        <li>網絡連接問題</li>
+                    </ul>
+                    <p>請檢查瀏覽器控制台獲取詳細錯誤信息</p>
+                </div>
+                <button class="ai-context-btn"><i class="fas fa-robot"></i> 重試</button>
+            `;
+            
+            // 為重試按鈕添加事件監聽器
+            const retryBtn = contextSection.querySelector('.ai-context-btn');
+            if (retryBtn) {
+                retryBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+                    await generateAIContexts(card);
+                });
+            }
+        }
+    } catch (error) {
+        console.error('生成常見用法時出錯:', error);
+        
+        // 檢查是否是配額耗盡錯誤
+        const isQuotaError = error.message && (
+            error.message.includes('429') || 
+            error.message.includes('RESOURCE_EXHAUSTED') || 
+            error.message.toLowerCase().includes('quota')
+        );
+        
+        if (isQuotaError) {
+            contextSection.innerHTML = `
+                <h4>常見用法：</h4>
+                <div class="loading-suggestion error">
+                    <strong>API 配額已用盡</strong>
+                    <p>您的 Google Gemini API 免費配額已用盡。可能的解決方法：</p>
+                    <ul>
+                        <li>等待 24 小時後再試（免費配額每天重置）</li>
+                        <li>使用不同的 API 密鑰</li>
+                        <li>升級到付費版 Google AI Studio</li>
+                    </ul>
+                    <p>詳情請訪問 <a href="https://ai.google.dev/pricing" target="_blank">Google AI Studio 定價頁面</a></p>
+                </div>
+                <button class="ai-context-btn"><i class="fas fa-robot"></i> 使用備用方法</button>
+            `;
+            
+            // 為備用方法按鈕添加事件監聽器
+            const fallbackBtn = contextSection.querySelector('.ai-context-btn');
+            if (fallbackBtn) {
+                fallbackBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    await generateFallbackContexts(card);
+                });
+            }
+    } else {
+            contextSection.innerHTML = `
+                <h4>常見用法：</h4>
+                <div class="loading-suggestion error">
+                    生成常見用法時出錯: ${error.message}
+                    <p>請檢查瀏覽器控制台獲取詳細錯誤信息</p>
+                </div>
+                <button class="ai-context-btn"><i class="fas fa-robot"></i> 重試</button>
+            `;
+            
+            // 為重試按鈕添加事件監聽器
+            const retryBtn = contextSection.querySelector('.ai-context-btn');
+            if (retryBtn) {
+                retryBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    await generateAIContexts(card);
+                });
+            }
+        }
+    }
+}
+
+/**
+ * 使用 Google Gemini API 獲取單字的常見用法
+ * @param {Object} card - 當前卡片
+ * @returns {Promise<Array>} - 常見用法數組
+ */
+async function getAIContexts(card) {
+    // 從 localStorage 獲取 API 密鑰
+    const API_KEY = getGeminiApiKey();
+    
+    console.log('API 密鑰狀態:', API_KEY ? '已設置' : '未設置');
+    
+    if (!API_KEY) {
+        console.warn('未設置 Gemini API 密鑰，無法使用 Gemini API 生成常見用法');
+        return null;
+    }
+    
+    const word = card.word;
+    const meaning = card.meaning || '';
+    const partOfSpeech = card.partOfSpeech || '';
+    
+    console.log('準備為單字生成常見用法:', word, '詞性:', partOfSpeech, '意思:', meaning);
+    
+    // 構建提示詞
+    const prompt = `
+    請為英文單字 "${word}" 生成 5 個常見用法或搭配。
+    
+    單字資訊：
+    - 詞性：${partOfSpeech}
+    - 中文意思：${meaning}
+    
+    請生成以下內容：
+    1. 常見搭配或短語
+    2. 慣用語或固定表達
+    3. 介詞搭配（如果適用）
+    4. 動詞或名詞搭配（如果適用）
+    5. 其他重要用法
+    
+    對於每個用法，請提供：
+    - 英文短語或搭配
+    - 中文意思
+    - 一個使用該搭配的例句
+    
+    請以 JSON 格式回答，格式如下：
+    [
+      {
+        "phrase": "英文短語或搭配",
+        "meaning": "中文意思",
+        "example": "使用該搭配的例句"
+      },
+      ...
+    ]
+    
+    請確保回答是有效的 JSON 格式，不要添加其他文字。
+    `;
+    
+    console.log('發送到 Gemini API 的提示詞:', prompt);
+    
+    try {
+        console.log('開始發送 API 請求...');
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${API_KEY}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                contents: [
+                    {
+                        parts: [
+                            {
+                                text: prompt
+                            }
+                        ]
+                    }
+                ],
+                generationConfig: {
+                    temperature: 0.7,
+                    topK: 40,
+                    topP: 0.95,
+                    maxOutputTokens: 1024,
+                }
+            })
+        });
+        
+        console.log('API 回應狀態:', response.status, response.statusText);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('API 錯誤詳情:', errorText);
+            throw new Error(`API 請求失敗: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log('Gemini API 完整回應:', data);
+        
+        // 檢查回應結構
+        if (!data.candidates || data.candidates.length === 0) {
+            console.error('API 回應中沒有 candidates 數組或為空');
+            return null;
+        }
+        
+        if (!data.candidates[0].content) {
+            console.error('API 回應中沒有 content 對象');
+            return null;
+        }
+        
+        if (!data.candidates[0].content.parts || data.candidates[0].content.parts.length === 0) {
+            console.error('API 回應中沒有 parts 數組或為空');
+            return null;
+        }
+        
+        const text = data.candidates[0].content.parts[0].text;
+        if (!text) {
+            console.error('API 回應中沒有文本內容');
+            return null;
+        }
+        
+        console.log('從 API 獲取的原始文本:', text);
+        
+        // 嘗試解析 JSON
+        try {
+            // 提取 JSON 部分（可能有額外文本）
+            const jsonMatch = text.match(/\[\s*\{.*\}\s*\]/s);
+            if (jsonMatch) {
+                const jsonText = jsonMatch[0];
+                const contexts = JSON.parse(jsonText);
+                console.log('解析後的常見用法:', contexts);
+                return contexts;
+            } else {
+                console.error('無法從回應中提取 JSON');
+                return null;
+            }
+        } catch (parseError) {
+            console.error('解析 JSON 時出錯:', parseError);
+            
+            // 嘗試手動解析
+            try {
+                // 使用正則表達式提取所有 phrase, meaning, example 三元組
+                const phraseRegex = /"phrase"\s*:\s*"([^"]*)"/g;
+                const meaningRegex = /"meaning"\s*:\s*"([^"]*)"/g;
+                const exampleRegex = /"example"\s*:\s*"([^"]*)"/g;
+                
+                const phrases = [];
+                const meanings = [];
+                const examples = [];
+                
+                let match;
+                while ((match = phraseRegex.exec(text)) !== null) {
+                    phrases.push(match[1]);
+                }
+                
+                while ((match = meaningRegex.exec(text)) !== null) {
+                    meanings.push(match[1]);
+                }
+                
+                while ((match = exampleRegex.exec(text)) !== null) {
+                    examples.push(match[1]);
+                }
+                
+                // 確保三個數組長度相同
+                const minLength = Math.min(phrases.length, meanings.length, examples.length);
+                
+                if (minLength > 0) {
+                    const contexts = [];
+                    for (let i = 0; i < minLength; i++) {
+                        contexts.push({
+                            phrase: phrases[i],
+                            meaning: meanings[i],
+                            example: examples[i]
+                        });
+                    }
+                    
+                    console.log('手動解析後的常見用法:', contexts);
+                    return contexts;
+                }
+            } catch (manualParseError) {
+                console.error('手動解析失敗:', manualParseError);
+            }
+            
+            return null;
+        }
+    } catch (error) {
+        console.error('調用 Gemini API 時出錯:', error);
+        return null;
+    }
+} 
+
+/**
+ * 使用本地方法生成單字的常見用法（不依賴 API）
+ * @param {Object} card - 當前卡片
+ */
+async function generateFallbackContexts(card) {
+    if (!card || !card.word) {
+        console.error('無法生成常見用法：無效的卡片數據');
+        return;
+    }
+    
+    const contextSection = document.querySelector('.context-section');
+    if (!contextSection) {
+        console.error('找不到上下文容器');
+        return;
+    }
+    
+    // 顯示加載中
+    contextSection.innerHTML = '<div class="loading-suggestion">正在生成常見用法...</div>';
+    
+    console.log('使用備用方法為單字生成常見用法:', card.word);
+    
+    // 獲取單字信息
+    const word = card.word.toLowerCase();
+    const partOfSpeech = card.partOfSpeech || '';
+    
+    // 預設常見用法
+    let contexts = [];
+    
+    // 根據單字提供特定的常見用法
+    if (word === 'apple') {
+        contexts = [
+            {
+                phrase: "apple pie",
+                meaning: "蘋果派",
+                example: "My grandmother makes the best apple pie in town."
+            },
+            {
+                phrase: "the apple of one's eye",
+                meaning: "心肝寶貝；摯愛之人",
+                example: "His daughter is the apple of his eye."
+            },
+            {
+                phrase: "as American as apple pie",
+                meaning: "非常美國化的；典型美國風格的",
+                example: "Baseball is as American as apple pie."
+            },
+            {
+                phrase: "a bad apple",
+                meaning: "害群之馬；壞分子",
+                example: "One bad apple can spoil the whole barrel."
+            },
+            {
+                phrase: "compare apples and oranges",
+                meaning: "比較風馬牛不相及的事物",
+                example: "Comparing these two business models is like comparing apples and oranges."
+            }
+        ];
+    } else if (word === 'book') {
+        contexts = [
+            {
+                phrase: "book a ticket",
+                meaning: "預訂票",
+                example: "I need to book a ticket for my flight to Tokyo."
+            },
+            {
+                phrase: "by the book",
+                meaning: "按照規則；循規蹈矩",
+                example: "The new manager does everything by the book."
+            },
+            {
+                phrase: "an open book",
+                meaning: "坦率的人；易於理解的事物",
+                example: "John is an open book; he never hides his feelings."
+            },
+            {
+                phrase: "throw the book at someone",
+                meaning: "嚴懲某人；對某人施以最嚴厲的處罰",
+                example: "The judge threw the book at him for his repeated offenses."
+            },
+            {
+                phrase: "in someone's good/bad books",
+                meaning: "受到某人的喜愛/厭惡",
+                example: "After helping her with the project, I'm in her good books now."
+            }
+        ];
+    } else if (word === 'time') {
+        contexts = [
+            {
+                phrase: "from time to time",
+                meaning: "不時地；偶爾",
+                example: "I still meet my high school friends from time to time."
+            },
+            {
+                phrase: "in the nick of time",
+                meaning: "及時；剛剛好趕上",
+                example: "The firefighters arrived in the nick of time to save the family."
+            },
+            {
+                phrase: "kill time",
+                meaning: "消磨時間",
+                example: "I played games on my phone to kill time while waiting for the train."
+            },
+            {
+                phrase: "time flies",
+                meaning: "光陰似箭；時間過得很快",
+                example: "Time flies when you're having fun."
+            },
+            {
+                phrase: "take your time",
+                meaning: "慢慢來；不要著急",
+                example: "Don't rush, take your time to make the right decision."
+            }
+        ];
+    } else if (word === 'water') {
+        contexts = [
+            {
+                phrase: "water down",
+                meaning: "沖淡；削弱",
+                example: "The company watered down the original proposal to make it more acceptable."
+            },
+            {
+                phrase: "like water off a duck's back",
+                meaning: "毫不在意；不受影響",
+                example: "Criticism is like water off a duck's back to him."
+            },
+            {
+                phrase: "water under the bridge",
+                meaning: "過去的事；已經無法改變的事",
+                example: "Our argument last week is water under the bridge now."
+            },
+            {
+                phrase: "keep one's head above water",
+                meaning: "勉強維持；度過難關",
+                example: "After losing his job, he's struggling to keep his head above water."
+            },
+            {
+                phrase: "test the waters",
+                meaning: "試探；嘗試",
+                example: "Before launching the product nationwide, they decided to test the waters in a few cities."
+            }
+        ];
+    } else {
+        // 根據詞性生成通用常見用法
+        if (partOfSpeech === 'n.' || partOfSpeech === 'noun') {
+            contexts = generateNounContexts(word);
+        } else if (partOfSpeech === 'v.' || partOfSpeech === 'verb') {
+            contexts = generateVerbContexts(word);
+        } else if (partOfSpeech === 'adj.' || partOfSpeech === 'adjective') {
+            contexts = generateAdjectiveContexts(word);
+        } else {
+            contexts = generateGenericContexts(word);
+        }
+    }
+    
+    // 顯示結果
+    if (contexts && contexts.length > 0) {
+        console.log('成功生成常見用法，數量:', contexts.length);
+        
+        // 清空加載提示
+        contextSection.innerHTML = '';
+        
+        // 添加標題
+        const title = document.createElement('h4');
+        title.innerHTML = '常見用法：';
+        contextSection.appendChild(title);
+        
+        // 添加常見用法
+        contexts.forEach(context => {
+            const contextItem = document.createElement('div');
+            contextItem.className = 'context-item';
+            
+            const phrase = document.createElement('p');
+            phrase.innerHTML = `<strong>${context.phrase}</strong> - ${context.meaning}`;
+            
+            const example = document.createElement('p');
+            example.className = 'example';
+            example.textContent = context.example;
+            
+            contextItem.appendChild(phrase);
+            contextItem.appendChild(example);
+            contextSection.appendChild(contextItem);
+        });
+        
+        // 添加說明
+        const noteElem = document.createElement('p');
+        noteElem.className = 'note';
+        noteElem.innerHTML = '<small>* 這些是系統生成的常見用法，可能不夠全面。API 配額恢復後可再次嘗試使用 AI 生成。</small>';
+        contextSection.appendChild(noteElem);
+        
+        // 更新卡片數據
+        card.contexts = contexts;
+        
+        // 保存到全局數據
+        if (window.appData && window.appData.vocabulary) {
+            const wordId = card.id;
+            const vocabIndex = window.appData.vocabulary.findIndex(item => item.id === wordId);
+            
+            if (vocabIndex !== -1) {
+                console.log(`更新全局數據中 ID 為 ${wordId} 的單字常見用法`);
+                window.appData.vocabulary[vocabIndex].contexts = contexts;
+                
+                // 儲存到本地儲存
+                try {
+                    localStorage.setItem('vocabMasterData', JSON.stringify(window.appData));
+                    console.log('數據已直接保存到本地儲存');
+                    
+                    // 顯示通知
+                    showNotification('常見用法已保存', 'success');
+                } catch (error) {
+                    console.error('保存到本地儲存時出錯:', error);
+                    showNotification('保存失敗：' + error.message, 'error');
+                }
+            }
+        }
+    } else {
+        console.warn('未能生成常見用法');
+        contextSection.innerHTML = `
+            <h4>常見用法：</h4>
+            <div class="loading-suggestion error">
+                無法生成常見用法，請稍後再試。
+            </div>
+            <button class="ai-context-btn"><i class="fas fa-robot"></i> 重試</button>
+        `;
+        
+        // 為重試按鈕添加事件監聽器
+        const retryBtn = contextSection.querySelector('.ai-context-btn');
+        if (retryBtn) {
+            retryBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await generateFallbackContexts(card);
+            });
+        }
+    }
+}
+
+/**
+ * 為名詞生成通用常見用法
+ * @param {string} word - 單字
+ * @returns {Array} - 常見用法數組
+ */
+function generateNounContexts(word) {
+    return [
+        {
+            phrase: `a/an ${word}`,
+            meaning: `一個${word}`,
+            example: `She bought a ${word} at the store yesterday.`
+        },
+        {
+            phrase: `${word}s`,
+            meaning: `多個${word}`,
+            example: `There are many ${word}s in this area.`
+        },
+        {
+            phrase: `have a ${word}`,
+            meaning: `擁有一個${word}`,
+            example: `I would like to have a ${word} someday.`
+        },
+        {
+            phrase: `use a ${word}`,
+            meaning: `使用一個${word}`,
+            example: `You should use a ${word} for this task.`
+        },
+        {
+            phrase: `${word}-related`,
+            meaning: `與${word}相關的`,
+            example: `We discussed several ${word}-related issues during the meeting.`
+        }
+    ];
+}
+
+/**
+ * 為動詞生成通用常見用法
+ * @param {string} word - 單字
+ * @returns {Array} - 常見用法數組
+ */
+function generateVerbContexts(word) {
+    return [
+        {
+            phrase: `${word} something`,
+            meaning: `${word}某物`,
+            example: `I need to ${word} something before I leave.`
+        },
+        {
+            phrase: `${word} someone`,
+            meaning: `${word}某人`,
+            example: `She will ${word} someone to help with the project.`
+        },
+        {
+            phrase: `${word} about`,
+            meaning: `關於${word}`,
+            example: `Let's ${word} about our plans for the weekend.`
+        },
+        {
+            phrase: `${word} up`,
+            meaning: `向上${word}`,
+            example: `You should ${word} up if you want to succeed.`
+        },
+        {
+            phrase: `${word} down`,
+            meaning: `向下${word}`,
+            example: `The company decided to ${word} down production this month.`
+        }
+    ];
+}
+
+/**
+ * 為形容詞生成通用常見用法
+ * @param {string} word - 單字
+ * @returns {Array} - 常見用法數組
+ */
+function generateAdjectiveContexts(word) {
+    return [
+        {
+            phrase: `very ${word}`,
+            meaning: `非常${word}`,
+            example: `The movie was very ${word}.`
+        },
+        {
+            phrase: `too ${word}`,
+            meaning: `太${word}`,
+            example: `The soup is too ${word} for me to eat.`
+        },
+        {
+            phrase: `${word} enough`,
+            meaning: `足夠${word}`,
+            example: `Is this ${word} enough for your needs?`
+        },
+        {
+            phrase: `more ${word} than`,
+            meaning: `比...更${word}`,
+            example: `This book is more ${word} than the one I read last week.`
+        },
+        {
+            phrase: `the most ${word}`,
+            meaning: `最${word}的`,
+            example: `This is the most ${word} experience I've ever had.`
+        }
+    ];
+}
+
+/**
+ * 為任何詞性生成通用常見用法
+ * @param {string} word - 單字
+ * @returns {Array} - 常見用法數組
+ */
+function generateGenericContexts(word) {
+    return [
+        {
+            phrase: `${word} in context`,
+            meaning: `在上下文中的${word}`,
+            example: `You need to understand ${word} in context to use it correctly.`
+        },
+        {
+            phrase: `learn about ${word}`,
+            meaning: `學習關於${word}`,
+            example: `Students will learn about ${word} in today's lesson.`
+        },
+        {
+            phrase: `${word} example`,
+            meaning: `${word}的例子`,
+            example: `Can you give me a ${word} example?`
+        },
+        {
+            phrase: `${word} meaning`,
+            meaning: `${word}的意思`,
+            example: `The ${word} meaning can vary depending on how it's used.`
+        },
+        {
+            phrase: `common ${word}`,
+            meaning: `常見的${word}`,
+            example: `This is a common ${word} that you'll encounter frequently.`
+        }
+    ];
 } 

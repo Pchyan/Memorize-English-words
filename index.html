@@ -42,6 +42,25 @@
                     </div>
                 </div>
                 
+                <!-- 添加 API 設置區域 -->
+                <div class="api-settings">
+                    <h3>API 設置</h3>
+                    <div class="setting-item">
+                        <label for="geminiApiKey">Google Gemini API 密鑰：</label>
+                        <div class="api-key-input">
+                            <input type="password" id="geminiApiKey" placeholder="輸入您的 Gemini API 密鑰" />
+                            <button class="btn small" id="saveApiKeyBtn">儲存</button>
+                            <button class="btn small secondary" id="toggleApiKeyBtn"><i class="fas fa-eye"></i></button>
+                        </div>
+                        <p class="setting-description">
+                            用於"建立聯想"功能中生成建議聯想。
+                            <a href="https://ai.google.dev/tutorials/web_quickstart?hl=zh-cn" target="_blank">
+                                如何獲取 API 密鑰 <i class="fas fa-external-link-alt"></i>
+                            </a>
+                        </p>
+                    </div>
+                </div>
+                
                 <div class="features">
                     <div class="feature-card">
                         <div class="icon"><i class="fas fa-copy"></i></div>
@@ -185,8 +204,12 @@
                         <div class="practice-section">
                             <h4>造句練習：</h4>
                             <textarea id="sentenceInput" placeholder="請使用這個單字造一個句子..."></textarea>
-                            <button class="btn secondary check-btn">檢查句子</button>
+                            <div class="sentence-buttons">
+                                <button class="btn secondary check-btn">檢查句子</button>
+                                <button class="btn primary ai-sentence-btn"><i class="fas fa-robot"></i> AI造句</button>
+                            </div>
                             <div id="sentenceFeedback" class="feedback"></div>
+                            <div id="aiSentenceExamples" class="ai-sentence-examples"></div>
                         </div>
                     </div>
                 </div>
@@ -690,14 +713,58 @@
     <!-- 模態框遮罩層 -->
     <div id="modalOverlay"></div>
 
-    <!-- 引入JavaScript檔案 -->
-    <script src="js/data.js"></script>
+    <!-- 腳本引用 -->
     <script src="js/app.js"></script>
-    <script src="js/flashcards.js"></script>
+    <script src="js/data.js"></script>
     <script src="js/vocabulary.js"></script>
+    <script src="js/flashcards.js"></script>
     <script src="js/practice.js"></script>
     <script src="js/progress.js"></script>
-    <script src="js/import_basic_1200.js"></script>
+    <script src="js/import_basic_2000.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // API 密鑰管理
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化 API 密鑰
+            const savedApiKey = localStorage.getItem('geminiApiKey') || '';
+            const apiKeyInput = document.getElementById('geminiApiKey');
+            if (apiKeyInput && savedApiKey) {
+                apiKeyInput.value = savedApiKey;
+            }
+            
+            // 保存 API 密鑰
+            const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
+            if (saveApiKeyBtn) {
+                saveApiKeyBtn.addEventListener('click', function() {
+                    const apiKey = apiKeyInput.value.trim();
+                    if (apiKey) {
+                        localStorage.setItem('geminiApiKey', apiKey);
+                        showNotification('API 密鑰已保存', 'success');
+                    } else {
+                        showNotification('請輸入有效的 API 密鑰', 'error');
+                    }
+                });
+            }
+            
+            // 切換 API 密鑰顯示/隱藏
+            const toggleApiKeyBtn = document.getElementById('toggleApiKeyBtn');
+            if (toggleApiKeyBtn) {
+                toggleApiKeyBtn.addEventListener('click', function() {
+                    if (apiKeyInput.type === 'password') {
+                        apiKeyInput.type = 'text';
+                        toggleApiKeyBtn.innerHTML = '<i class="fas fa-eye-slash"></i>';
+                    } else {
+                        apiKeyInput.type = 'password';
+                        toggleApiKeyBtn.innerHTML = '<i class="fas fa-eye"></i>';
+                    }
+                });
+            }
+        });
+        
+        // 獲取 Gemini API 密鑰
+        function getGeminiApiKey() {
+            return localStorage.getItem('geminiApiKey') || '';
+        }
+    </script>
 </body>
 </html> 

@@ -614,23 +614,60 @@ textarea {
     margin-top: 10px;
 }
 
+/* 反饋區域 */
 .feedback {
-    margin-top: 10px;
-    padding: 10px;
-    border-radius: var(--border-radius);
-    display: none;
+    margin-top: 15px;
+    padding: 12px 15px;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    transition: all 0.3s ease;
+    background-color: #f8f9fa;
+    border-left: 4px solid #6c757d;
 }
 
 .feedback.success {
-    background-color: rgba(64, 192, 87, 0.1);
-    color: var(--success-color);
-    display: block;
+    background-color: #e8f5e9;
+    border-left: 4px solid #4caf50;
+    color: #2e7d32;
 }
 
 .feedback.error {
-    background-color: rgba(250, 82, 82, 0.1);
-    color: var(--danger-color);
-    display: block;
+    background-color: #ffebee;
+    border-left: 4px solid #f44336;
+    color: #c62828;
+}
+
+.feedback.loading {
+    background-color: #e3f2fd;
+    border-left: 4px solid #2196f3;
+    color: #1565c0;
+    position: relative;
+    padding-left: 35px;
+}
+
+.feedback.loading:before {
+    content: "";
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    border: 2px solid #2196f3;
+    border-top: 2px solid transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: translateY(-50%) rotate(0deg); }
+    100% { transform: translateY(-50%) rotate(360deg); }
+}
+
+.feedback strong {
+    font-weight: 600;
+    color: inherit;
 }
 
 .word-pills {
@@ -1628,4 +1665,244 @@ body.modal-open {
 .save-btn.saved {
     background-color: #4CAF50;
     color: white;
+}
+
+/* API 設置區域 */
+.api-settings {
+    margin: 30px 0;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.api-settings h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #333;
+    font-size: 1.2rem;
+}
+
+.setting-item {
+    margin-bottom: 15px;
+}
+
+.setting-item label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.api-key-input {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.api-key-input input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.btn.small {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+}
+
+.setting-description {
+    margin-top: 8px;
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.setting-description a {
+    color: #4285f4;
+    text-decoration: none;
+}
+
+.setting-description a:hover {
+    text-decoration: underline;
+}
+
+/* 加載中提示 */
+.loading-suggestion {
+    padding: 10px;
+    color: #666;
+    font-style: italic;
+}
+
+/* 錯誤提示 */
+.loading-suggestion.error {
+    color: #d32f2f;
+    background-color: #ffebee;
+    border-left: 3px solid #d32f2f;
+    font-style: normal;
+    padding: 12px 15px;
+    border-radius: 4px;
+}
+
+.loading-suggestion.error ul {
+    margin: 8px 0;
+    padding-left: 20px;
+}
+
+.loading-suggestion.error li {
+    margin-bottom: 4px;
+}
+
+.loading-suggestion.error p {
+    margin-top: 8px;
+    font-size: 0.85rem;
+    color: #666;
+}
+
+/* 造句按鈕區域 */
+.sentence-buttons {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+/* AI造句按鈕 */
+.ai-sentence-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ai-sentence-btn i {
+    font-size: 0.9em;
+}
+
+/* AI造句例句區域 */
+.ai-sentence-examples {
+    margin-top: 15px;
+    display: none;
+}
+
+.ai-sentence-examples.active {
+    display: block;
+}
+
+.ai-sentence-examples h5 {
+    font-size: 0.95rem;
+    margin-bottom: 10px;
+    color: #4285f4;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ai-sentence-examples h5 i {
+    font-size: 0.9em;
+}
+
+.example-sentence {
+    background-color: #f8f9fa;
+    border-left: 3px solid #4285f4;
+    padding: 10px 15px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    position: relative;
+}
+
+.example-sentence:last-child {
+    margin-bottom: 0;
+}
+
+.example-sentence .use-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background-color: #4285f4;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.example-sentence:hover .use-btn {
+    opacity: 1;
+}
+
+.example-sentence .use-btn:hover {
+    background-color: #3367d6;
+}
+
+/* AI 補充常見用法按鈕 */
+.ai-context-btn {
+    background-color: #6c5ce7;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin-top: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.3s;
+}
+
+.ai-context-btn:hover {
+    background-color: #5649c0;
+}
+
+.ai-context-btn i {
+    margin-right: 6px;
+}
+
+/* 上下文項目樣式 */
+.context-item {
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 12px;
+    border-left: 3px solid #6c5ce7;
+}
+
+.context-item p {
+    margin: 6px 0;
+}
+
+.context-item .example {
+    font-style: italic;
+    color: #666;
+    margin-top: 8px;
+}
+
+/* 備用方法說明 */
+.note {
+    font-size: 0.85rem;
+    color: #666;
+    margin-top: 15px;
+    padding: 8px 12px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    border-left: 3px solid #6c757d;
+}
+
+.note small {
+    display: block;
+    line-height: 1.4;
+}
+
+/* 連結樣式 */
+.loading-suggestion.error a {
+    color: #0066cc;
+    text-decoration: underline;
+}
+
+.loading-suggestion.error a:hover {
+    color: #004499;
 } 
