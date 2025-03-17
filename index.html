@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>記憶英文單字 - 您的個人英語詞彙學習助手</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- Font Awesome 圖標庫 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>單字記憶大師</h1>
+                <p>輕鬆記憶英文單字的最佳助手</p>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="#" class="active" data-page="home">首頁</a></li>
+                    <li><a href="#" data-page="flashcards">記憶卡</a></li>
+                    <li><a href="#" data-page="vocabulary">詞彙管理</a></li>
+                    <li><a href="#" data-page="practice">練習測驗</a></li>
+                    <li><a href="#" data-page="progress">學習進度</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <!-- 首頁內容 -->
+        <section id="home" class="page active">
+            <div class="container">
+                <div class="welcome-section">
+                    <h2>歡迎使用單字記憶大師</h2>
+                    <p>透過科學化的記憶方法，讓您輕鬆掌握英文單字</p>
+                    <div class="buttons">
+                        <button class="btn primary" id="startLearningBtn">開始學習</button>
+                        <button class="btn secondary" id="importWordsBtn">匯入單字</button>
+                    </div>
+                </div>
+                
+                <div class="features">
+                    <div class="feature-card">
+                        <div class="icon"><i class="fas fa-copy"></i></div>
+                        <h3>記憶卡學習</h3>
+                        <p>使用雙面記憶卡進行反覆練習，加深記憶</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="icon"><i class="fas fa-link"></i></div>
+                        <h3>智慧聯想法</h3>
+                        <p>透過建立聯想幫助記憶單字，提高學習效率</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="icon"><i class="fas fa-headphones"></i></div>
+                        <h3>多感官學習</h3>
+                        <p>結合聽覺、口語和書寫練習，全方位掌握單字</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="icon"><i class="fas fa-chart-line"></i></div>
+                        <h3>進度追蹤</h3>
+                        <p>設定每日目標，追蹤學習進度，保持學習動力</p>
+                    </div>
+                </div>
+                
+                <div class="getting-started">
+                    <h2>快速開始使用</h2>
+                    <div class="steps">
+                        <div class="step">
+                            <div class="step-number">1</div>
+                            <h4>建立詞彙表</h4>
+                            <p>添加您想要學習的單字或匯入現有詞彙表</p>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">2</div>
+                            <h4>設定學習計畫</h4>
+                            <p>自訂每日學習目標和複習時間表</p>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">3</div>
+                            <h4>開始學習</h4>
+                            <p>使用記憶卡、測驗等多種方式進行學習</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 記憶卡頁面 -->
+        <section id="flashcards" class="page">
+            <div class="container">
+                <div class="page-header">
+                    <h2>記憶卡學習</h2>
+                    <div class="controls">
+                        <button id="autoPlayBtn" class="btn secondary"><i class="fas fa-play"></i> 自動播放</button>
+                        <select id="deckSelector">
+                            <option value="all">所有單字</option>
+                            <option value="notLearned">未學習</option>
+                            <option value="learning">學習中</option>
+                            <option value="mastered">已掌握</option>
+                            <!-- 自定義詞彙表將由JavaScript動態添加 -->
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="flashcard-container">
+                    <div class="flashcard">
+                        <div class="flashcard-inner">
+                            <div class="flashcard-front">
+                                <h3 id="wordFront">Apple</h3>
+                                <div class="phonetic">/ˈæp.əl/</div>
+                                <button class="pronunciation-btn"><i class="fas fa-volume-up"></i></button>
+                            </div>
+                            <div class="flashcard-back">
+                                <h3 id="wordBack">蘋果</h3>
+                                <div class="word-details">
+                                    <p class="part-of-speech">名詞</p>
+                                    <p class="definition">一種常見的圓形水果，外皮為紅色、綠色或黃色，果肉脆甜多汁。</p>
+                                    <div class="examples">
+                                        <h4>例句：</h4>
+                                        <p>I eat an apple every day. (我每天吃一個蘋果。)</p>
+                                        <p>The apple tree in our garden bears fruit each autumn. (我們花園裡的蘋果樹每年秋天都會結果。)</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flashcard-navigation">
+                        <button id="prevCardBtn" class="nav-btn"><i class="fas fa-chevron-left"></i></button>
+                        <div class="card-counter">1 / 20</div>
+                        <button id="nextCardBtn" class="nav-btn"><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                    
+                    <div class="learning-tools">
+                        <button class="tool-btn" id="associationBtn"><i class="fas fa-lightbulb"></i> 建立聯想</button>
+                        <button class="tool-btn" id="contextBtn"><i class="fas fa-quote-right"></i> 查看上下文</button>
+                        <button class="tool-btn" id="synonymsBtn"><i class="fas fa-equals"></i> 同義/反義詞</button>
+                        <button class="tool-btn" id="practiceBtnFC"><i class="fas fa-edit"></i> 拼寫練習</button>
+                    </div>
+                </div>
+                
+                <!-- 聯想法面板 -->
+                <div class="learning-panel" id="associationPanel">
+                    <div class="panel-header">
+                        <h3>建立聯想 - <span id="assocWord">Apple</span></h3>
+                        <button class="close-panel-btn"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="panel-content">
+                        <p>為了更容易記住這個單字，試著建立個人聯想：</p>
+                        <textarea id="assocInput" placeholder="例如：蘋果是紅色的圓形水果，想像咬一口時的聲音「喀滋」"></textarea>
+                        <div class="suggestion-section">
+                            <h4>建議聯想：</h4>
+                            <div class="suggestions">
+                                <button class="suggestion-btn">紅色的水果</button>
+                                <button class="suggestion-btn">像「A」一樣是單字的開頭</button>
+                                <button class="suggestion-btn">含有「p」的雙重發音</button>
+                                <button class="suggestion-btn">想像一個蘋果樹</button>
+                            </div>
+                        </div>
+                        <button class="btn primary save-btn">儲存聯想</button>
+                    </div>
+                </div>
+                
+                <!-- 上下文面板 -->
+                <div class="learning-panel" id="contextPanel">
+                    <div class="panel-header">
+                        <h3>上下文和詞組 - <span id="contextWord">Apple</span></h3>
+                        <button class="close-panel-btn"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="panel-content">
+                        <div class="context-section">
+                            <h4>常見用法：</h4>
+                            <div class="context-item">
+                                <p><strong>apple of one's eye</strong> - 心肝寶貝，摯愛</p>
+                                <p class="example">The little girl is the apple of her father's eye. (這個小女孩是她父親的心肝寶貝。)</p>
+                            </div>
+                            <div class="context-item">
+                                <p><strong>an apple a day keeps the doctor away</strong> - 一日一蘋果，醫生遠離我</p>
+                                <p class="example">My grandmother always says that an apple a day keeps the doctor away. (我奶奶總是說一日一蘋果，醫生遠離我。)</p>
+                            </div>
+                        </div>
+                        <div class="practice-section">
+                            <h4>造句練習：</h4>
+                            <textarea id="sentenceInput" placeholder="請使用這個單字造一個句子..."></textarea>
+                            <button class="btn secondary check-btn">檢查句子</button>
+                            <div id="sentenceFeedback" class="feedback"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 同義詞/反義詞面板 -->
+                <div class="learning-panel" id="synonymsPanel">
+                    <div class="panel-header">
+                        <h3>同義詞與反義詞 - <span id="synWord">Apple</span></h3>
+                        <button class="close-panel-btn"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="panel-content">
+                        <div class="synonyms-section">
+                            <h4>同義詞：</h4>
+                            <div class="word-pills">
+                                <span class="word-pill">fruit <i class="fas fa-volume-up"></i></span>
+                                <span class="word-pill">pomme <i class="fas fa-volume-up"></i></span>
+                            </div>
+                        </div>
+                        <div class="related-words-section">
+                            <h4>相關詞彙：</h4>
+                            <div class="word-pills">
+                                <span class="word-pill">pear <i class="fas fa-volume-up"></i></span>
+                                <span class="word-pill">orange <i class="fas fa-volume-up"></i></span>
+                                <span class="word-pill">fruit <i class="fas fa-volume-up"></i></span>
+                                <span class="word-pill">tree <i class="fas fa-volume-up"></i></span>
+                            </div>
+                        </div>
+                        <div class="word-map">
+                            <h4>詞彙關聯圖：</h4>
+                            <div class="map-container">
+                                <!-- 這裡將使用JS生成詞彙關聯圖 -->
+                                <div class="placeholder-map">詞彙關聯圖將在這裡顯示</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 詞彙管理頁面 -->
+        <div id="vocabulary" class="page">
+            <div class="page-header">
+                <h2>詞彙管理</h2>
+                <div class="header-actions">
+                    <button id="addWordBtn" class="primary-btn">
+                        <i class="fas fa-plus"></i> 新增單字
+                    </button>
+                    <div class="dropdown">
+                        <button class="secondary-btn dropdown-btn">
+                            <i class="fas fa-file-import"></i> 導入/導出
+                        </button>
+                        <div class="dropdown-content">
+                            <button id="importBtn" class="dropdown-item">
+                                <i class="fas fa-file-import"></i> 導入
+                            </button>
+                            <button id="exportJsonBtn" class="dropdown-item">
+                                <i class="fas fa-file-export"></i> 導出 JSON
+                            </button>
+                            <button id="exportCsvBtn" class="dropdown-item">
+                                <i class="fas fa-file-csv"></i> 導出 CSV
+                            </button>
+                        </div>
+                    </div>
+                    <input type="file" id="importFileInput" accept=".json,.csv" style="display: none;">
+                </div>
+            </div>
+            
+            <div class="page-content">
+                <div class="vocabulary-layout">
+                    <!-- 詞彙列表 -->
+                    <div class="vocab-list-container">
+                        <div id="vocabLists"></div>
+                    </div>
+                    
+                    <!-- 詞彙內容 -->
+                    <div class="vocabulary-content">
+                        <!-- 搜索框 -->
+                        <div class="search-container">
+                            <input type="text" id="searchInput" placeholder="搜索單字...">
+                            <button id="clearSearchButton" class="clear-search">
+                                <i class="fas fa-times"></i>
+                            </button>
+                            <button id="searchButton">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- 詞彙容器 -->
+                        <div id="vocabularyContainer" class="vocabulary-container"></div>
+                        
+                        <!-- 分頁 -->
+                        <div id="pagination" class="pagination"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 練習測驗頁面 -->
+        <section id="practice" class="page">
+            <div class="container">
+                <div class="page-header">
+                    <h2>練習測驗</h2>
+                    <div class="controls">
+                        <select id="practiceTypeSelect">
+                            <option value="spelling">拼寫練習</option>
+                            <option value="multiple">選擇題測驗</option>
+                            <option value="matching">配對遊戲</option>
+                            <option value="fill">填空練習</option>
+                        </select>
+                        <select id="practiceListSelect">
+                            <option value="all">所有單字</option>
+                            <option value="new">新學單字</option>
+                            <option value="difficult">困難單字</option>
+                            <option value="custom">自訂詞彙表</option>
+                        </select>
+                        <button class="btn primary" id="startPracticeBtn">開始練習</button>
+                    </div>
+                </div>
+                
+                <div class="practice-container">
+                    <!-- 拼寫練習 -->
+                    <div class="practice-mode active" id="spellingPractice">
+                        <div class="practice-card">
+                            <div class="practice-question">
+                                <h3>請拼寫出下列單字</h3>
+                                <div class="meaning">蘋果</div>
+                                <div class="hint-section">
+                                    <button class="hint-btn" id="phoneticHintBtn">顯示音標</button>
+                                    <button class="hint-btn" id="firstLetterHintBtn">顯示首字母</button>
+                                    <button class="pronunciation-btn"><i class="fas fa-volume-up"></i></button>
+                                </div>
+                                <div class="phonetic-hint hidden">/ˈæp.əl/</div>
+                                <div class="first-letter-hint hidden">A _ _ _ _</div>
+                            </div>
+                            <div class="practice-answer">
+                                <input type="text" id="spellingInput" placeholder="請輸入拼寫...">
+                                <button class="btn primary" id="checkSpellingBtn">檢查答案</button>
+                            </div>
+                            <div class="feedback">
+                                <!-- 回饋會在這顯示 -->
+                            </div>
+                        </div>
+                        <div class="practice-navigation">
+                            <button class="nav-btn" id="prevSpellingBtn"><i class="fas fa-chevron-left"></i></button>
+                            <div class="progress-indicator">1 / 10</div>
+                            <button class="nav-btn" id="nextSpellingBtn"><i class="fas fa-chevron-right"></i></button>
+                        </div>
+                    </div>
+                    
+                    <!-- 選擇題測驗 -->
+                    <div class="practice-mode" id="multiplePractice">
+                        <div class="practice-card">
+                            <div class="practice-question">
+                                <h3>"Apple" 的中文意思是什麼？</h3>
+                                <button class="pronunciation-btn"><i class="fas fa-volume-up"></i></button>
+                            </div>
+                            <div class="practice-options">
+                                <div class="option">
+                                    <input type="radio" id="option1" name="answer" value="option1">
+                                    <label for="option1">香蕉</label>
+                                </div>
+                                <div class="option">
+                                    <input type="radio" id="option2" name="answer" value="option2">
+                                    <label for="option2">蘋果</label>
+                                </div>
+                                <div class="option">
+                                    <input type="radio" id="option3" name="answer" value="option3">
+                                    <label for="option3">橘子</label>
+                                </div>
+                                <div class="option">
+                                    <input type="radio" id="option4" name="answer" value="option4">
+                                    <label for="option4">葡萄</label>
+                                </div>
+                            </div>
+                            <div class="practice-submit">
+                                <button class="btn primary" id="submitMultipleBtn">提交答案</button>
+                            </div>
+                            <div class="feedback">
+                                <!-- 回饋會在這顯示 -->
+                            </div>
+                        </div>
+                        <div class="practice-navigation">
+                            <button class="nav-btn" id="prevMultipleBtn"><i class="fas fa-chevron-left"></i></button>
+                            <div class="progress-indicator">1 / 10</div>
+                            <button class="nav-btn" id="nextMultipleBtn"><i class="fas fa-chevron-right"></i></button>
+                        </div>
+                    </div>
+                    
+                    <!-- 配對遊戲 -->
+                    <div class="practice-mode" id="matchingPractice">
+                        <div class="matching-container">
+                            <h3>將英文單字與對應的中文意思配對</h3>
+                            <div class="matching-game">
+                                <div class="matching-column">
+                                    <div class="matching-item" data-id="1">Apple</div>
+                                    <div class="matching-item" data-id="2">Banana</div>
+                                    <div class="matching-item" data-id="3">Orange</div>
+                                    <div class="matching-item" data-id="4">Grape</div>
+                                </div>
+                                <div class="matching-column">
+                                    <div class="matching-item" data-id="3">橘子</div>
+                                    <div class="matching-item" data-id="4">葡萄</div>
+                                    <div class="matching-item" data-id="1">蘋果</div>
+                                    <div class="matching-item" data-id="2">香蕉</div>
+                                </div>
+                            </div>
+                            <div class="matching-timer">
+                                <i class="fas fa-clock"></i> <span id="matchingTime">01:00</span>
+                            </div>
+                            <div class="matching-score">
+                                已配對: <span id="matchedCount">0</span> / 4
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 填空練習 -->
+                    <div class="practice-mode" id="fillPractice">
+                        <div class="practice-card">
+                            <div class="practice-question">
+                                <h3>請填入適當的單字完成句子</h3>
+                                <div class="fill-sentence">
+                                    I eat an <input type="text" class="fill-blank" id="fillBlank"> every day to stay healthy.
+                                </div>
+                                <div class="hint-section">
+                                    <button class="hint-btn" id="meaningHintBtn">顯示中文意思</button>
+                                    <button class="hint-btn" id="letterHintBtn">顯示字母提示</button>
+                                </div>
+                                <div class="meaning-hint hidden">蘋果</div>
+                                <div class="letter-hint hidden">a _ _ _ _</div>
+                            </div>
+                            <div class="practice-submit">
+                                <button class="btn primary" id="checkFillBtn">檢查答案</button>
+                            </div>
+                            <div class="feedback">
+                                <!-- 回饋會在這顯示 -->
+                            </div>
+                        </div>
+                        <div class="practice-navigation">
+                            <button class="nav-btn" id="prevFillBtn"><i class="fas fa-chevron-left"></i></button>
+                            <div class="progress-indicator">1 / 10</div>
+                            <button class="nav-btn" id="nextFillBtn"><i class="fas fa-chevron-right"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 學習進度頁面 -->
+        <section id="progress" class="page">
+            <div class="container">
+                <div class="page-header">
+                    <h2>學習進度</h2>
+                    <div class="controls">
+                        <select id="timeRangeSelect">
+                            <option value="week">本週</option>
+                            <option value="month">本月</option>
+                            <option value="year">本年</option>
+                            <option value="all">所有時間</option>
+                        </select>
+                        <button class="btn secondary" id="exportProgressBtn"><i class="fas fa-download"></i> 匯出報告</button>
+                    </div>
+                </div>
+                
+                <div class="progress-overview">
+                    <div class="stat-card">
+                        <h3>已學習單字</h3>
+                        <div class="stat-number">120</div>
+                        <div class="stat-progress">
+                            <div class="progress-bar" style="width: 60%"></div>
+                            <div class="progress-text">目標: 200</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>已掌握單字</h3>
+                        <div class="stat-number">75</div>
+                        <div class="stat-percentage">62.5%</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>學習天數</h3>
+                        <div class="stat-number">14</div>
+                        <div class="stat-streak">連續學習: 5天</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>今日目標</h3>
+                        <div class="stat-number">7/10</div>
+                        <div class="stat-progress">
+                            <div class="progress-bar" style="width: 70%"></div>
+                            <div class="progress-text">再學習3個</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="progress-charts">
+                    <div class="chart-container">
+                        <h3>每日學習量</h3>
+                        <div class="chart" id="dailyChart">
+                            <!-- 這裡將使用JS生成圖表 -->
+                            <div class="placeholder-chart">每日學習量圖表將在這裡顯示</div>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <h3>學習分佈</h3>
+                        <div class="chart" id="distributionChart">
+                            <!-- 這裡將使用JS生成圖表 -->
+                            <div class="placeholder-chart">學習分佈圖表將在這裡顯示</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="learning-calendar">
+                    <h3>學習日曆</h3>
+                    <div class="calendar-container" id="learningCalendar">
+                        <!-- 這裡將使用JS生成日曆 -->
+                        <div class="placeholder-calendar">學習日曆將在這裡顯示</div>
+                    </div>
+                </div>
+                
+                <div class="learning-log">
+                    <h3>學習紀錄</h3>
+                    <div class="log-container">
+                        <div class="log-entry">
+                            <div class="log-date">2023年3月17日</div>
+                            <div class="log-content">
+                                <div class="log-activity">學習了10個新單字</div>
+                                <div class="log-details">完成了「商業英語」詞彙表的學習</div>
+                            </div>
+                        </div>
+                        <div class="log-entry">
+                            <div class="log-date">2023年3月16日</div>
+                            <div class="log-content">
+                                <div class="log-activity">複習了15個單字</div>
+                                <div class="log-details">完成了拼寫測驗，正確率85%</div>
+                            </div>
+                        </div>
+                        <div class="log-entry">
+                            <div class="log-date">2023年3月15日</div>
+                            <div class="log-content">
+                                <div class="log-activity">學習了8個新單字</div>
+                                <div class="log-details">完成了「日常用語」詞彙表的一部分</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="daily-journal">
+                    <h3>學習日誌</h3>
+                    <div class="journal-container">
+                        <textarea id="journalEntry" placeholder="今天我使用了哪些新學的單字？遇到什麼困難？有什麼心得？..."></textarea>
+                        <button class="btn primary" id="saveJournalBtn">儲存日誌</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <p>&copy; 2023 單字記憶大師 - 您的個人英語詞彙學習助手</p>
+                <div class="footer-links">
+                    <a href="#">關於我們</a>
+                    <a href="#">使用說明</a>
+                    <a href="#">隱私權政策</a>
+                    <a href="#">聯絡我們</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 添加單字模態框 -->
+    <div id="addWordModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>新增單字</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addWordForm">
+                    <div class="form-group">
+                        <label for="newWord">單字</label>
+                        <input type="text" id="newWord" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newPhonetic">音標</label>
+                        <input type="text" id="newPhonetic">
+                    </div>
+                    <div class="form-group">
+                        <label for="newPartOfSpeech">詞性</label>
+                        <select id="newPartOfSpeech">
+                            <option value="">選擇詞性</option>
+                            <option value="n.">名詞 (n.)</option>
+                            <option value="v.">動詞 (v.)</option>
+                            <option value="adj.">形容詞 (adj.)</option>
+                            <option value="adv.">副詞 (adv.)</option>
+                            <option value="prep.">介詞 (prep.)</option>
+                            <option value="conj.">連接詞 (conj.)</option>
+                            <option value="pron.">代詞 (pron.)</option>
+                            <option value="interj.">感嘆詞 (interj.)</option>
+                            <option value="phrase">片語 (phrase)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="newMeaning">意思</label>
+                        <textarea id="newMeaning" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="newExamples">例句</label>
+                        <textarea id="newExamples" placeholder="每行一個例句"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="newStatus">學習狀態</label>
+                        <select id="newStatus">
+                            <option value="notLearned">未學習</option>
+                            <option value="learning">學習中</option>
+                            <option value="mastered">已掌握</option>
+                        </select>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="primary-btn">新增</button>
+                        <button type="button" class="secondary-btn close-modal">取消</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 編輯單字模態框 -->
+    <div id="editWordModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>編輯單字</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editWordForm">
+                    <input type="hidden" id="editWordId">
+                    <div class="form-group">
+                        <label for="editWord">單字</label>
+                        <input type="text" id="editWord" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editPhonetic">音標</label>
+                        <input type="text" id="editPhonetic">
+                    </div>
+                    <div class="form-group">
+                        <label for="editPartOfSpeech">詞性</label>
+                        <select id="editPartOfSpeech">
+                            <option value="">選擇詞性</option>
+                            <option value="n.">名詞 (n.)</option>
+                            <option value="v.">動詞 (v.)</option>
+                            <option value="adj.">形容詞 (adj.)</option>
+                            <option value="adv.">副詞 (adv.)</option>
+                            <option value="prep.">介詞 (prep.)</option>
+                            <option value="conj.">連接詞 (conj.)</option>
+                            <option value="pron.">代詞 (pron.)</option>
+                            <option value="interj.">感嘆詞 (interj.)</option>
+                            <option value="phrase">片語 (phrase)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="editMeaning">意思</label>
+                        <textarea id="editMeaning" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="editExamples">例句</label>
+                        <textarea id="editExamples" placeholder="每行一個例句"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="editStatus">學習狀態</label>
+                        <select id="editStatus">
+                            <option value="notLearned">未學習</option>
+                            <option value="learning">學習中</option>
+                            <option value="mastered">已掌握</option>
+                        </select>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="primary-btn">保存</button>
+                        <button type="button" class="secondary-btn close-modal">取消</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 單字詳情模態框 -->
+    <div id="wordDetailsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>單字詳情</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="wordDetailsContent"></div>
+                <div class="form-actions">
+                    <button type="button" class="secondary-btn close-modal">關閉</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 模態框遮罩層 -->
+    <div id="modalOverlay"></div>
+
+    <!-- 引入JavaScript檔案 -->
+    <script src="js/data.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/flashcards.js"></script>
+    <script src="js/vocabulary.js"></script>
+    <script src="js/practice.js"></script>
+    <script src="js/progress.js"></script>
+    <script src="js/import_basic_1200.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</body>
+</html> 
