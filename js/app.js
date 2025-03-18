@@ -35,20 +35,16 @@ function initPageNavigation() {
     const navLinks = document.querySelectorAll('nav a');
     
     navLinks.forEach(link => {
-        link.addEventListener('click', (e) => {
+        link.addEventListener('click', async (e) => {
             e.preventDefault();
             
             // 獲取目標頁面ID
             const targetPageId = link.getAttribute('data-page');
             
             // 切換到目標頁面
-            switchPage(targetPageId);
+            await switchPage(targetPageId);
             
-            // 更新導航鏈接狀態
-            navLinks.forEach(navLink => {
-                navLink.classList.remove('active');
-            });
-            link.classList.add('active');
+            // switchPage已處理導航鏈接狀態，此處可移除
         });
     });
 }
@@ -57,7 +53,7 @@ function initPageNavigation() {
  * 切換頁面
  * @param {string} pageId - 目標頁面ID
  */
-function switchPage(pageId) {
+async function switchPage(pageId) {
     console.log(`切換到頁面: ${pageId}`);
     
     // 隱藏所有頁面
@@ -82,7 +78,11 @@ function switchPage(pageId) {
         if (pageId === 'vocabulary') {
             console.log('初始化詞彙管理頁面');
             if (typeof initVocabularyManager === 'function') {
-                initVocabularyManager();
+                try {
+                    await initVocabularyManager();
+                } catch (error) {
+                    console.error('初始化詞彙管理頁面失敗:', error);
+                }
             } else {
                 console.error('找不到 initVocabularyManager 函數');
             }
@@ -90,7 +90,11 @@ function switchPage(pageId) {
             console.log('初始化記憶卡頁面');
             // 初始化記憶卡頁面
             if (typeof initFlashcards === 'function') {
-                initFlashcards();
+                try {
+                    await initFlashcards();
+                } catch (error) {
+                    console.error('初始化記憶卡頁面失敗:', error);
+                }
             } else {
                 console.error('找不到 initFlashcards 函數');
             }
@@ -165,34 +169,20 @@ function initHomeButtons() {
     // 開始學習按鈕
     const startLearningBtn = document.getElementById('startLearningBtn');
     if (startLearningBtn) {
-        startLearningBtn.addEventListener('click', () => {
-            switchPage('flashcards');
+        startLearningBtn.addEventListener('click', async () => {
+            await switchPage('flashcards');
             
-            // 更新導航鏈接狀態
-            const navLinks = document.querySelectorAll('nav a');
-            navLinks.forEach(link => {
-                link.classList.remove('active');
-                if (link.getAttribute('data-page') === 'flashcards') {
-                    link.classList.add('active');
-                }
-            });
+            // 更新導航鏈接狀態已在switchPage中處理，此處無需重複
         });
     }
     
     // 匯入單字按鈕
     const importWordsBtn = document.getElementById('importWordsBtn');
     if (importWordsBtn) {
-        importWordsBtn.addEventListener('click', () => {
-            switchPage('vocabulary');
+        importWordsBtn.addEventListener('click', async () => {
+            await switchPage('vocabulary');
             
-            // 更新導航鏈接狀態
-            const navLinks = document.querySelectorAll('nav a');
-            navLinks.forEach(link => {
-                link.classList.remove('active');
-                if (link.getAttribute('data-page') === 'vocabulary') {
-                    link.classList.add('active');
-                }
-            });
+            // 更新導航鏈接狀態已在switchPage中處理，此處無需重複
         });
     }
 }

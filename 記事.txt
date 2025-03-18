@@ -8,8 +8,15 @@ hnb16441@bcooq.com
 
 AIzaSyBJTy0EoemY0-zfUvpUNl3vOQleggT4l5Q
 
-匯入後只有1741字，不到2000字
-請將 @https://www.soeasyedu.com.tw/blog/learning-tips/english-vocabularies 此頁面的單字加入
 
-移除現有單字
-再將 @https://www.soeasyedu.com.tw/blog/learning-tips/english-vocabularies 此網頁的單字2005字全數加入
+1.移除現有單字，改以SQLite資料庫方式儲存使用者建立的單字
+2."詞彙管理"中，使用者可以自行建立字彙組，分別儲存在資料庫
+3.將 https://www.soeasyedu.com.tw/blog/learning-tips/english-vocabularies 此網頁的單字2005字全數加入"詞彙管理"成為一個獨立的字彙組(資料庫)
+4."記憶卡"功能的下拉選單與"詞彙管理"中的字彙組同步
+
+
+問題:
+
+"記憶卡"頁面下方的"建立聯想"、"查看上下文"、"同義/反義詞" 功能點選沒有反應，不會出現相對應的頁面
+
+"詞彙管理"的單字，點擊進去的內容與外面不同字。

@@ -8,260 +8,355 @@ let currentPage = 1;
 const pageSize = 10;
 let filteredWords = [];
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     console.log('DOMContentLoaded 事件觸發');
     
-    // 確保 window.appData 被正確初始化
-    if (!window.appData) {
-        console.log('初始化 window.appData');
-        window.appData = {
-            vocabulary: [],
-            userSettings: {},
-            learningHistory: [],
-            journal: [],
-            achievements: [],
-            customLists: []
-        };
-    }
-    
-    if (!window.appData.vocabulary) {
-        console.log('初始化 window.appData.vocabulary');
-        window.appData.vocabulary = [];
-    }
-    
-    if (!window.appData.customLists) {
-        console.log('初始化 window.appData.customLists');
-        window.appData.customLists = [];
-    }
-    
-    // 從 localStorage 載入數據
     try {
-        const savedData = localStorage.getItem('vocabMasterData');
-        if (savedData) {
-            window.appData = JSON.parse(savedData);
-            console.log('從 localStorage 載入數據成功，詞彙數量:', window.appData.vocabulary.length);
-        } else {
-            console.log('localStorage 中沒有保存的數據');
-            saveAppData(); // 保存初始化的空數據
-        }
-    } catch (e) {
-        console.error('載入數據時發生錯誤:', e);
-    }
+        // 初始化資料庫
+        await window.db.init();
+        console.log('資料庫初始化成功');
     
     // 檢查當前頁面是否為詞彙管理頁面
     const vocabularyPage = document.getElementById('vocabulary');
     if (vocabularyPage && vocabularyPage.classList.contains('active')) {
         console.log('當前頁面是詞彙管理頁面，立即初始化');
-        initVocabularyManager();
+            await initVocabularyManager();
     } else {
-        console.log('當前頁面不是詞彙管理頁面，等待頁面切換時初始化');
+            // 否則，監聽頁面切換事件
+            const navLinks = document.querySelectorAll('nav a');
+            navLinks.forEach(link => {
+                link.addEventListener('click', async function(e) {
+                    if (this.getAttribute('data-page') === 'vocabulary') {
+                        console.log('切換到詞彙管理頁面，初始化詞彙管理器');
+                        // 延遲一點初始化，確保頁面已經切換
+                        setTimeout(async () => {
+                            await initVocabularyManager();
+                        }, 100);
+                    }
+                });
+            });
+        }
+    } catch (error) {
+        console.error('初始化失敗:', error);
+        alert('系統初始化失敗，請重新整理頁面');
     }
     
-    // 綁定導航事件
-    const vocabNavLink = document.querySelector('nav a[data-page="vocabulary"]');
-    if (vocabNavLink) {
-        vocabNavLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            console.log('點擊詞彙管理導航鏈接');
-            switchPage('vocabulary');
-        });
-    }
+    // 添加CSS樣式
+    addVocabularyStyles();
 });
 
 /**
  * 初始化詞彙管理器
  */
-function initVocabularyManager() {
+async function initVocabularyManager() {
     console.log('初始化詞彙管理器');
     
-    // 確保全局變量已初始化
-    window.currentPage = 1;
-    window.itemsPerPage = 10;
+    try {
+        // 初始化資料庫
+        await window.db.init();
+        console.log('資料庫初始化完成');
     
-    // 初始化詞彙列表
-    initVocabLists();
+        // 初始化詞彙列表
+        await initVocabLists();
+        
+        // 確保tools-container元素存在
+        ensureToolsContainerExists();
     
-    // 初始化詞彙操作
-    initVocabOperations();
+        // 初始化詞彙操作
+        await initVocabOperations();
     
-    // 初始化導入/導出功能
-    initImportExportFeatures();
+        // 載入詞彙數據
+        await loadVocabularyData();
+        
+        console.log('詞彙管理器初始化完成');
+    } catch (error) {
+        console.error('初始化詞彙管理器失敗:', error);
+    }
+}
+
+/**
+ * 確保tools-container元素存在
+ */
+function ensureToolsContainerExists() {
+    console.log('確保tools-container元素存在');
     
-    // 初始化模態框關閉按鈕
-    initModalCloseButtons();
+    // 檢查是否已存在tools-container
+    let toolsContainer = document.querySelector('.tools-container');
     
-    // 初始化搜索功能
-    initSearchFunction();
-    
-    // 載入詞彙數據
-    loadVocabularyData();
-    
-    // 更新詞彙表計數
-    updateVocabListCounts();
+    if (!toolsContainer) {
+        console.log('未找到tools-container元素，創建新元素');
+        
+        // 獲取page-header元素
+        const pageHeader = document.querySelector('#vocabulary .page-header');
+        
+        if (pageHeader) {
+            // 創建tools-container元素
+            toolsContainer = document.createElement('div');
+            toolsContainer.className = 'tools-container';
+            
+            // 將按鈕添加到容器中
+            toolsContainer.innerHTML = `
+                <button class="btn primary" id="addWordBtnToolbar"><i class="fas fa-plus"></i> 新增單字</button>
+                <button class="btn secondary" id="importBtn"><i class="fas fa-file-import"></i> 匯入詞彙</button>
+                <input type="file" id="importFileInput" accept=".json,.csv" style="display: none;">
+                <button class="btn secondary" id="exportJsonBtn"><i class="fas fa-file-export"></i> 匯出 JSON</button>
+                <button class="btn secondary" id="exportCsvBtn"><i class="fas fa-file-export"></i> 匯出 CSV</button>
+            `;
+            
+            // 添加到page-header
+            pageHeader.appendChild(toolsContainer);
+            console.log('已創建tools-container元素');
+        } else {
+            console.error('找不到page-header元素，無法創建tools-container');
+        }
+    } else {
+        console.log('找到現有的tools-container元素');
+    }
 }
 
 /**
  * 初始化詞彙列表
  */
-function initVocabLists() {
+async function initVocabLists() {
     console.log('初始化詞彙列表');
     
-    const vocabListContainer = document.getElementById('vocabLists');
-    if (!vocabListContainer) {
-        console.error('找不到詞彙列表容器 #vocabLists');
-        
-        // 嘗試查找其他可能的容器
-        const alternativeContainer = document.querySelector('.vocab-list-container');
-        if (alternativeContainer) {
-            console.log('找到替代容器 .vocab-list-container');
-            
-            // 創建一個新的容器
-            const newContainer = document.createElement('div');
-            newContainer.id = 'vocabLists';
-            alternativeContainer.appendChild(newContainer);
-            
-            // 重新調用初始化函數
-            return initVocabLists();
-        }
-        
+    const vocabListsContainer = document.getElementById('vocabLists');
+    if (!vocabListsContainer) {
+        console.error('找不到詞彙列表容器');
         return;
     }
     
-    // 清空列表容器
-    vocabListContainer.innerHTML = '';
-    
-    // 創建預設列表
+    try {
+        // 獲取所有詞彙組
+        const lists = await window.db.getAllWordLists();
+        console.log('已載入詞彙組:', lists.length);
+        
+        // 清空容器
+        vocabListsContainer.innerHTML = '';
+        
+        // 添加預設列表
     const defaultLists = [
-        { id: 'all', name: '所有單字', icon: 'fa-list' },
-        { id: 'notLearned', name: '未學習', icon: 'fa-book' },
-        { id: 'learning', name: '學習中', icon: 'fa-graduation-cap' },
-        { id: 'mastered', name: '已掌握', icon: 'fa-check-circle' }
-    ];
-    
-    // 添加預設列表
+            { id: 'all', name: '所有單字', icon: 'fas fa-globe' },
+            { id: 'notLearned', name: '未學習', icon: 'fas fa-book' },
+            { id: 'learning', name: '學習中', icon: 'fas fa-graduation-cap' },
+            { id: 'mastered', name: '已掌握', icon: 'fas fa-check-circle' }
+        ];
+        
+        // 創建預設列表
     defaultLists.forEach(list => {
-        const listItem = createListItem(list);
-        vocabListContainer.appendChild(listItem);
+            const listElement = createListItem(list);
+            vocabListsContainer.appendChild(listElement);
     });
     
-    // 添加自定義列表
-    if (window.appData && window.appData.customLists && window.appData.customLists.length > 0) {
         // 添加分隔線
         const separator = document.createElement('div');
-        separator.classList.add('list-separator');
-        vocabListContainer.appendChild(separator);
+        separator.className = 'list-separator';
+        vocabListsContainer.appendChild(separator);
         
-        // 添加自定義列表
-        window.appData.customLists.forEach(list => {
-            const listItem = createListItem(list);
-            vocabListContainer.appendChild(listItem);
+        // 添加自定義詞彙組
+        lists.forEach(list => {
+            const listElement = createListItem(list);
+            vocabListsContainer.appendChild(listElement);
         });
+        
+        // 添加「新增詞彙組」按鈕
+        const addListBtn = document.createElement('button');
+        addListBtn.className = 'add-list-btn';
+        addListBtn.innerHTML = '<i class="fas fa-plus"></i> 新增詞彙組';
+        addListBtn.addEventListener('click', () => {
+            const listName = prompt('請輸入詞彙組名稱：');
+            if (listName) {
+                addNewVocabList(listName);
+            }
+        });
+        vocabListsContainer.appendChild(addListBtn);
+        
+    } catch (error) {
+        console.error('初始化詞彙列表失敗:', error);
     }
-    
-    // 更新詞彙列表計數
-    updateVocabListCounts();
-    
-    // 默認選中「所有單字」列表
-    const allListItem = vocabListContainer.querySelector('.vocab-list-item[data-id="all"]');
-    if (allListItem) {
-        allListItem.classList.add('active');
-        window.currentList = 'all';
-    }
-    
-    console.log('詞彙列表初始化完成');
 }
 
 /**
- * 創建詞彙表項目
- * @param {Object} list - 詞彙表對象
- * @returns {HTMLElement} - 詞彙表項目元素
+ * 創建詞彙列表項目
  */
 function createListItem(list) {
-    console.log('創建詞彙表項目:', list);
+    const item = document.createElement('div');
+    item.className = 'vocab-list-item';
+    item.setAttribute('data-list-id', list.id);
     
-    const listItem = document.createElement('div');
-    listItem.className = 'vocab-list-item';
-    listItem.dataset.id = list.id;
-    
-    // 如果是當前選中的詞彙表，添加active類
-    if (list.id === currentVocabList) {
-        listItem.classList.add('active');
-    }
-    
-    // 計算該詞彙表中的單字數量
-    let count = 0;
-    if (window.appData && window.appData.vocabulary) {
-        if (list.id === 'all') {
-            count = window.appData.vocabulary.length;
-        } else if (list.id === 'notLearned') {
-            count = window.appData.vocabulary.filter(word => 
-                word.status === 'new' || word.status === 'notLearned'
-            ).length;
-        } else if (list.id === 'learning') {
-            count = window.appData.vocabulary.filter(word => 
-                word.status === 'learning'
-            ).length;
-        } else if (list.id === 'mastered') {
-            count = window.appData.vocabulary.filter(word => 
-                word.status === 'mastered'
-            ).length;
-        } else {
-            // 自定義詞彙表
-            count = window.appData.vocabulary.filter(word => 
-                word.lists && Array.isArray(word.lists) && word.lists.includes(list.id)
-            ).length;
-        }
-    }
-    
-    // 創建詞彙表內容
     const icon = document.createElement('i');
-    icon.className = `fas ${list.icon}`;
+    icon.className = list.icon || 'fas fa-list';
     
-    const listName = document.createElement('span');
-    listName.className = 'list-name';
-    listName.textContent = list.name;
+    const name = document.createElement('span');
+    name.className = 'list-name';
+    name.textContent = list.name;
     
-    const countSpan = document.createElement('span');
-    countSpan.className = 'count';
-    countSpan.textContent = count;
+    const count = document.createElement('span');
+    count.className = 'word-count';
+    count.textContent = '0';
     
-    listItem.appendChild(icon);
-    listItem.appendChild(listName);
-    listItem.appendChild(countSpan);
+    item.appendChild(icon);
+    item.appendChild(name);
+    item.appendChild(count);
     
-    // 如果是自定義詞彙表，添加刪除按鈕
-    if (list.id !== 'all' && list.id !== 'notLearned' && list.id !== 'learning' && list.id !== 'mastered') {
-        const deleteBtn = document.createElement('i');
-        deleteBtn.className = 'fas fa-times delete-list-btn';
-        deleteBtn.title = '刪除詞彙表';
+    // 如果不是預設列表，添加編輯和刪除按鈕
+    if (!['all', 'notLearned', 'learning', 'mastered'].includes(list.id)) {
+        const actions = document.createElement('div');
+        actions.className = 'list-actions';
         
-        // 添加刪除事件
-        deleteBtn.addEventListener('click', (e) => {
-            e.stopPropagation(); // 防止觸發詞彙表點擊事件
-            deleteVocabList(list.id);
+        const editBtn = document.createElement('button');
+        editBtn.className = 'edit-list-btn';
+        editBtn.innerHTML = '<i class="fas fa-edit"></i>';
+        editBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const newName = prompt('請輸入新的詞彙組名稱：', list.name);
+            if (newName && newName !== list.name) {
+                updateVocabList(list.id, newName);
+            }
         });
         
-        listItem.appendChild(deleteBtn);
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-list-btn';
+        deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (confirm(`確定要刪除詞彙組「${list.name}」嗎？`)) {
+            deleteVocabList(list.id);
+            }
+        });
+        
+        actions.appendChild(editBtn);
+        actions.appendChild(deleteBtn);
+        item.appendChild(actions);
     }
     
     // 添加點擊事件
-    listItem.addEventListener('click', () => {
-        // 移除所有項目的active類
-        document.querySelectorAll('.vocab-list-item').forEach(item => {
-            item.classList.remove('active');
+    item.addEventListener('click', () => {
+        // 移除其他列表的選中狀態
+        document.querySelectorAll('.vocab-list-item').forEach(el => {
+            el.classList.remove('active');
         });
         
-        // 將當前項目設為active
-        listItem.classList.add('active');
+        // 添加選中狀態
+        item.classList.add('active');
         
-        // 更新當前詞彙表
+        // 更新當前詞彙列表
         currentVocabList = list.id;
         
-        // 過濾並顯示該詞彙表的單字
-        filterVocabulary();
+        // 重新載入詞彙
+        loadVocabularyData();
     });
     
-    return listItem;
+    return item;
+}
+
+/**
+ * 新增詞彙組
+ */
+async function addNewVocabList(name) {
+    try {
+        const list = {
+            name,
+            icon: 'fas fa-list',
+            createdAt: new Date().toISOString()
+        };
+        
+        await window.db.addWordList(list);
+        console.log('新增詞彙組成功');
+        
+        // 重新初始化詞彙列表
+        await initVocabLists();
+        
+        // 更新詞彙表計數
+        await updateVocabListCounts();
+        
+    } catch (error) {
+        console.error('新增詞彙組失敗:', error);
+        alert('新增詞彙組失敗，請稍後再試');
+    }
+}
+
+/**
+ * 更新詞彙組
+ */
+async function updateVocabList(id, name) {
+    try {
+        const list = {
+            id,
+            name,
+            updatedAt: new Date().toISOString()
+        };
+        
+        await window.db.updateWordList(list);
+        console.log('更新詞彙組成功');
+        
+        // 重新初始化詞彙列表
+        await initVocabLists();
+        
+    } catch (error) {
+        console.error('更新詞彙組失敗:', error);
+        alert('更新詞彙組失敗，請稍後再試');
+    }
+}
+
+/**
+ * 刪除詞彙組
+ */
+async function deleteVocabList(id) {
+    try {
+        await window.db.deleteWordList(id);
+        console.log('刪除詞彙組成功');
+        
+        // 如果當前選中的是被刪除的詞彙組，切換到「所有單字」
+        if (currentVocabList === id) {
+            currentVocabList = 'all';
+        }
+        
+        // 重新初始化詞彙列表
+        await initVocabLists();
+        
+        // 重新載入詞彙
+        await loadVocabularyData();
+        
+    } catch (error) {
+        console.error('刪除詞彙組失敗:', error);
+        alert('刪除詞彙組失敗，請稍後再試');
+    }
+}
+
+/**
+ * 更新詞彙表計數
+ */
+async function updateVocabListCounts() {
+    try {
+        // 獲取所有單字
+        const allWords = await window.db.getAllWords();
+        
+        // 更新預設列表的計數
+        const notLearned = allWords.filter(w => w.status === 'notLearned').length;
+        const learning = allWords.filter(w => w.status === 'learning').length;
+        const mastered = allWords.filter(w => w.status === 'mastered').length;
+        
+        document.querySelector('[data-list-id="all"] .word-count').textContent = allWords.length;
+        document.querySelector('[data-list-id="notLearned"] .word-count').textContent = notLearned;
+        document.querySelector('[data-list-id="learning"] .word-count').textContent = learning;
+        document.querySelector('[data-list-id="mastered"] .word-count').textContent = mastered;
+        
+        // 獲取所有詞彙組
+        const lists = await window.db.getAllWordLists();
+        
+        // 更新每個詞彙組的計數
+        for (const list of lists) {
+            const words = await window.db.getWordsInList(list.id);
+            const countElement = document.querySelector(`[data-list-id="${list.id}"] .word-count`);
+            if (countElement) {
+                countElement.textContent = words.length;
+            }
+        }
+        
+    } catch (error) {
+        console.error('更新詞彙表計數失敗:', error);
+    }
 }
 
 /**
@@ -315,470 +410,195 @@ function filterVocabulary() {
 }
 
 /**
- * 添加新詞彙表
- * @param {string} listName - 詞彙表名稱
- */
-function addNewVocabList(listName) {
-    console.log(`添加新詞彙表: ${listName}`);
-    
-    if (!listName || listName.trim() === '') {
-        alert('詞彙表名稱不能為空');
-        return;
-    }
-    
-    // 檢查是否已存在同名詞彙表
-    if (window.appData.customLists && window.appData.customLists.some(list => list.name === listName)) {
-        alert(`詞彙表 "${listName}" 已存在`);
-        return;
-    }
-    
-    // 創建新詞彙表
-    const newList = {
-        id: 'custom_' + Date.now(),
-        name: listName,
-        icon: 'fa-list-alt'
-    };
-    
-    // 添加到全局數據
-    if (!window.appData.customLists) {
-        window.appData.customLists = [];
-    }
-    
-    window.appData.customLists.push(newList);
-    
-    // 保存數據
-    saveAppData();
-    
-    // 重新初始化詞彙表
-    initVocabLists();
-    
-    // 更新記憶卡頁面的詞彙表下拉選單
-    updateFlashcardDeckSelector();
-    
-    // 顯示成功訊息
-    alert(`詞彙表 "${listName}" 已創建`);
-}
-
-/**
- * 刪除詞彙表
- * @param {string} listId - 詞彙表ID
- */
-function deleteVocabList(listId) {
-    console.log(`刪除詞彙表: ${listId}`);
-    
-    if (!listId || !window.appData.customLists) {
-        return;
-    }
-    
-    // 找到要刪除的詞彙表
-    const listIndex = window.appData.customLists.findIndex(list => list.id === listId);
-    if (listIndex === -1) {
-        console.error(`找不到ID為 ${listId} 的詞彙表`);
-        return;
-    }
-    
-    const listName = window.appData.customLists[listIndex].name;
-    
-    // 確認刪除
-    if (!confirm(`確定要刪除詞彙表 "${listName}" 嗎？`)) {
-        return;
-    }
-    
-    // 從全局數據中刪除
-    window.appData.customLists.splice(listIndex, 1);
-    
-    // 保存數據
-    saveAppData();
-    
-    // 重新初始化詞彙表
-    initVocabLists();
-    
-    // 更新記憶卡頁面的詞彙表下拉選單
-    updateFlashcardDeckSelector();
-    
-    // 如果當前選中的是被刪除的詞彙表，切換到"所有單字"
-    if (currentVocabList === listId) {
-        currentVocabList = 'all';
-        filterVocabulary();
-    }
-    
-    // 顯示成功訊息
-    alert(`詞彙表 "${listName}" 已刪除`);
-}
-
-/**
- * 更新記憶卡頁面的詞彙表下拉選單
- */
-function updateFlashcardDeckSelector() {
-    // 檢查是否有initDeckSelector函數
-    if (typeof initDeckSelector === 'function') {
-        initDeckSelector();
-    } else {
-        console.log('記憶卡模組尚未載入，無法更新詞彙表下拉選單');
-    }
-}
-
-/**
- * 初始化詞彙操作
- */
-function initVocabOperations() {
-    console.log('初始化詞彙操作');
-    
-    // 設置全局變量
-    window.currentPage = 1;
-    window.itemsPerPage = 10;
-    window.currentList = 'all';
-    window.filteredVocabulary = [];
-    window.searchTerm = '';
-    
-    // 添加單字按鈕
-    const addWordBtn = document.getElementById('addWordBtn');
-    if (addWordBtn) {
-        console.log('找到 addWordBtn 元素，添加點擊事件');
-        
-        // 移除可能存在的舊事件監聽器
-        const newBtn = addWordBtn.cloneNode(true);
-        addWordBtn.parentNode.replaceChild(newBtn, addWordBtn);
-        
-        // 添加新的事件監聽器
-        newBtn.addEventListener('click', function() {
-            console.log('點擊了新增單字按鈕');
-            // 顯示添加單字模態框
-            showAddWordModal();
-        });
-    } else {
-        console.error('找不到 addWordBtn 元素');
-    }
-    
-    // 初始化搜索功能
-    initSearchFunction();
-    
-    // 初始化添加單字表單
-    const addWordForm = document.getElementById('addWordForm');
-    if (addWordForm) {
-        addWordForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            addNewWord();
-        });
-    } else {
-        console.error('找不到添加單字表單');
-    }
-    
-    // 初始化編輯單字表單
-    const editWordForm = document.getElementById('editWordForm');
-    if (editWordForm) {
-        editWordForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            saveEditedWord();
-        });
-    } else {
-        console.error('找不到編輯單字表單');
-    }
-    
-    // 初始化模態框關閉按鈕
-    const closeModalBtns = document.querySelectorAll('.close-modal');
-    closeModalBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            hideAddWordModal();
-            hideEditWordModal();
-            hideWordDetailsModal();
-        });
-    });
-    
-    // 初始化模態框遮罩層
-    const modalOverlay = document.getElementById('modalOverlay');
-    if (modalOverlay) {
-        modalOverlay.addEventListener('click', () => {
-            hideAddWordModal();
-            hideEditWordModal();
-            hideWordDetailsModal();
-        });
-    } else {
-        console.error('找不到模態框遮罩層');
-    }
-    
-    console.log('詞彙操作初始化完成');
-}
-
-/**
- * 顯示添加單字模態框
- */
-function showAddWordModal() {
-    console.log('顯示添加單字模態框');
-    
-    const modal = document.getElementById('addWordModal');
-    const overlay = document.getElementById('modalOverlay');
-    
-    if (!modal || !overlay) {
-        console.error('找不到添加模態框或遮罩元素');
-        if (!modal) console.error('找不到 addWordModal 元素');
-        if (!overlay) console.error('找不到 modalOverlay 元素');
-        alert('無法開啟添加單字視窗');
-        return;
-    }
-    
-    console.log('模態框和遮罩元素都存在，添加 active 類');
-    
-    // 添加 modal-open 類到 body
-    document.body.classList.add('modal-open');
-    
-    // 確保模態框和遮罩層可見
-    modal.style.display = 'block';
-    overlay.style.display = 'block';
-    
-    // 確保輸入框可以點選
-    const inputs = modal.querySelectorAll('input, select, textarea');
-    inputs.forEach(input => {
-        input.style.pointerEvents = 'auto';
-        input.style.zIndex = '1002';
-    });
-    
-    // 使用 setTimeout 確保 display 屬性生效後再添加 active 類
-    setTimeout(() => {
-        modal.classList.add('active');
-        overlay.classList.add('active');
-        
-        // 聚焦第一個輸入框
-        const firstInput = modal.querySelector('input:not([type="hidden"])');
-        if (firstInput) {
-            firstInput.focus();
-        }
-        
-        console.log('已添加 active 類');
-    }, 10);
-}
-
-/**
- * 隱藏添加單字模態框
- */
-function hideAddWordModal() {
-    console.log('隱藏添加單字模態框');
-    
-    const modal = document.getElementById('addWordModal');
-    const overlay = document.getElementById('modalOverlay');
-    
-    if (!modal || !overlay) {
-        console.error('找不到添加模態框或遮罩元素');
-        return;
-    }
-    
-    modal.classList.remove('active');
-    overlay.classList.remove('active');
-    
-    // 移除 modal-open 類
-    document.body.classList.remove('modal-open');
-    
-    // 使用 setTimeout 確保過渡效果完成後再隱藏元素
-    setTimeout(() => {
-        modal.style.display = 'none';
-        overlay.style.display = 'none';
-    }, 300);
-}
-
-/**
  * 載入詞彙數據
  */
-function loadVocabularyData() {
+async function loadVocabularyData() {
     console.log('載入詞彙數據');
     
-    if (!window.appData || !window.appData.vocabulary) {
-        console.error('無法載入詞彙數據：appData 或 vocabulary 未定義');
-        return;
+    try {
+        let words;
+        
+        if (currentVocabList === 'all') {
+            words = await window.db.getAllWords();
+        } else if (currentVocabList === 'notLearned') {
+            words = await window.db.getWordsByStatus('notLearned');
+        } else if (currentVocabList === 'learning') {
+            words = await window.db.getWordsByStatus('learning');
+        } else if (currentVocabList === 'mastered') {
+            words = await window.db.getWordsByStatus('mastered');
+    } else {
+            // 自定義詞彙組
+            words = await window.db.getWordsInList(currentVocabList);
+        }
+        
+        console.log('已載入詞彙數據，單字數量:', words.length);
+    
+    // 設置全局變量
+        filteredWords = words;
+        
+        // 顯示第一頁
+        displayVocabularyPage(1);
+        
+        // 更新分頁控制
+        updatePagination();
+        
+        // 更新詞彙表計數
+        await updateVocabListCounts();
+    } catch (error) {
+        console.error('載入詞彙數據失敗:', error);
     }
-    
-    // 過濾詞彙
-    filterVocabulary();
-    
-    // 更新詞彙列表計數
-    updateVocabListCounts();
-    
-    console.log('詞彙數據載入完成');
 }
 
 /**
  * 顯示詞彙頁面
  */
-function displayVocabularyPage() {
-    console.log('顯示詞彙頁面');
+function displayVocabularyPage(page = 1) {
+    console.log('顯示詞彙頁面，頁碼:', page);
     
-    const vocabularyContainer = document.getElementById('vocabularyContainer');
-    if (!vocabularyContainer) {
-        console.error('找不到詞彙容器 #vocabularyContainer');
-        
-        // 嘗試查找其他可能的容器
-        const alternativeContainer = document.querySelector('.vocabulary-content');
-        if (alternativeContainer) {
-            console.log('找到替代容器 .vocabulary-content');
-            
-            // 創建一個新的容器
-            const newContainer = document.createElement('div');
-            newContainer.id = 'vocabularyContainer';
-            newContainer.className = 'vocabulary-container';
-            alternativeContainer.appendChild(newContainer);
-            
-            // 重新調用顯示函數
-            return displayVocabularyPage();
-        }
-        
+    // 設置當前頁碼
+    currentPage = page || 1;
+    
+    // 獲取每頁顯示數量
+    const itemsPerPage = 10;
+    
+    // 計算開始和結束索引
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = Math.min(startIndex + itemsPerPage, filteredWords.length);
+    
+    // 獲取當前頁的單字
+    const currentPageWords = filteredWords.slice(startIndex, endIndex);
+    
+    // 獲取單字列表容器
+    const vocabularyList = document.getElementById('vocabularyList');
+    if (!vocabularyList) {
+        console.error('找不到單字列表容器');
         return;
     }
     
     // 清空容器
-    vocabularyContainer.innerHTML = '';
+    vocabularyList.innerHTML = '';
     
-    // 檢查是否有過濾後的單字
-    if (!filteredWords || filteredWords.length === 0) {
-        const noWordsMessage = document.createElement('div');
-        noWordsMessage.className = 'no-words-message';
-        noWordsMessage.textContent = '沒有找到符合條件的單字';
-        vocabularyContainer.appendChild(noWordsMessage);
-        
-        // 隱藏分頁
-        const paginationContainer = document.getElementById('paginationContainer');
-        if (paginationContainer) {
-            paginationContainer.style.display = 'none';
-        }
-        
+    // 如果沒有單字，顯示提示信息
+    if (currentPageWords.length === 0) {
+        const emptyMessage = document.createElement('div');
+        emptyMessage.className = 'empty-message';
+        emptyMessage.textContent = '未找到單字。';
+        vocabularyList.appendChild(emptyMessage);
         return;
     }
-    
-    // 計算當前頁的單字
-    const startIndex = (window.currentPage - 1) * window.itemsPerPage;
-    const endIndex = Math.min(startIndex + window.itemsPerPage, filteredWords.length);
-    const currentPageWords = filteredWords.slice(startIndex, endIndex);
-    
-    console.log(`顯示第 ${window.currentPage} 頁，共 ${Math.ceil(filteredWords.length / window.itemsPerPage)} 頁`);
-    console.log(`顯示單字索引 ${startIndex} 到 ${endIndex - 1}，共 ${currentPageWords.length} 個`);
     
     // 創建單字元素
     currentPageWords.forEach(word => {
         const wordElement = createWordElement(word);
-        vocabularyContainer.appendChild(wordElement);
+        vocabularyList.appendChild(wordElement);
     });
-    
-    // 更新分頁
-    updatePagination();
 }
 
 /**
  * 創建單字元素
  */
 function createWordElement(word) {
-    if (!word || !word.id) {
-        console.error('無法創建單字元素：單字對象無效', word);
-        return document.createElement('div'); // 返回空元素
-    }
-    
-    console.log(`創建單字元素: ${word.word} (ID: ${word.id})`);
+    console.log('創建單字元素:', word.word);
     
     const wordElement = document.createElement('div');
-    wordElement.classList.add('word-item');
-    wordElement.dataset.id = word.id;
+    wordElement.className = 'vocab-item';
+    wordElement.setAttribute('data-id', word.id);
     
-    // 根據單字狀態添加對應的類
-    if (word.status) {
-        // 處理舊版狀態名稱
-        let statusClass = word.status;
-        if (word.status === 'new') statusClass = 'notLearned';
-        if (word.status === 'difficult') statusClass = 'learning';
-        
-        wordElement.classList.add(`status-${statusClass}`);
-    }
+    const wordInfo = document.createElement('div');
+    wordInfo.className = 'word-info';
     
-    // 創建單字內容
-    const wordContent = document.createElement('div');
-    wordContent.classList.add('word-content');
-    
-    // 單字和音標
-    const wordHeader = document.createElement('div');
-    wordHeader.classList.add('word-header');
+    const wordMain = document.createElement('div');
+    wordMain.className = 'word-main';
     
     const wordText = document.createElement('h3');
-    wordText.classList.add('word-text');
     wordText.textContent = word.word;
-    wordHeader.appendChild(wordText);
     
-    if (word.phonetic) {
-        const phonetic = document.createElement('span');
-        phonetic.classList.add('phonetic');
-        phonetic.textContent = `/${word.phonetic}/`;
-        wordHeader.appendChild(phonetic);
-    }
+    const phoneticSpan = document.createElement('span');
+    phoneticSpan.className = 'phonetic';
+    phoneticSpan.textContent = word.phonetic || '';
     
-    // 添加發音按鈕
-    const pronounceBtn = document.createElement('button');
-    pronounceBtn.classList.add('pronounce-btn');
-    pronounceBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
-    pronounceBtn.title = '發音';
-    pronounceBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        pronounceWord(word.word);
-    });
-    wordHeader.appendChild(pronounceBtn);
+    wordMain.appendChild(wordText);
+    wordMain.appendChild(phoneticSpan);
     
-    wordContent.appendChild(wordHeader);
+    const wordDetails = document.createElement('div');
+    wordDetails.className = 'word-details';
     
-    // 詞性和意思
-    const meaningContainer = document.createElement('div');
-    meaningContainer.classList.add('meaning-container');
-    
-    if (word.partOfSpeech) {
         const partOfSpeech = document.createElement('span');
-        partOfSpeech.classList.add('part-of-speech');
-        partOfSpeech.textContent = translatePartOfSpeech(word.partOfSpeech);
-        meaningContainer.appendChild(partOfSpeech);
-    }
+    partOfSpeech.className = 'part-of-speech';
+    partOfSpeech.textContent = translatePartOfSpeech(word.partOfSpeech) || '';
     
-    const meaning = document.createElement('p');
-    meaning.classList.add('meaning');
+    const meaning = document.createElement('span');
+    meaning.className = 'meaning';
     meaning.textContent = word.meaning;
-    meaningContainer.appendChild(meaning);
     
-    wordContent.appendChild(meaningContainer);
+    wordDetails.appendChild(partOfSpeech);
+    wordDetails.appendChild(meaning);
     
-    // 添加到單字元素
-    wordElement.appendChild(wordContent);
+    wordInfo.appendChild(wordMain);
+    wordInfo.appendChild(wordDetails);
     
-    // 創建操作按鈕
-    const actionButtons = document.createElement('div');
-    actionButtons.classList.add('word-actions');
+    wordStatus = document.createElement('div');
+    wordStatus.className = 'word-status';
     
-    // 查看按鈕
-    const viewButton = document.createElement('button');
-    viewButton.classList.add('view-btn');
-    viewButton.innerHTML = '<i class="fas fa-eye"></i>';
-    viewButton.title = '查看詳情';
-    viewButton.addEventListener('click', (e) => {
+    const statusText = document.createElement('span');
+    statusText.className = `status-badge ${word.status}`;
+    statusText.textContent = translateStatus(word.status);
+    
+    wordStatus.appendChild(statusText);
+    
+    if (word.examples) {
+        const viewExamplesBtn = document.createElement('button');
+        viewExamplesBtn.className = 'view-examples-btn';
+        viewExamplesBtn.innerHTML = '<i class="fas fa-quote-right"></i>';
+        viewExamplesBtn.title = '查看例句';
+        viewExamplesBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         viewWordDetails(word.id);
     });
-    actionButtons.appendChild(viewButton);
+        wordStatus.appendChild(viewExamplesBtn);
+    }
     
-    // 編輯按鈕
-    const editButton = document.createElement('button');
-    editButton.classList.add('edit-btn');
-    editButton.innerHTML = '<i class="fas fa-edit"></i>';
-    editButton.title = '編輯單字';
-    editButton.addEventListener('click', (e) => {
+    const wordActions = document.createElement('div');
+    wordActions.className = 'word-actions';
+    
+    const editBtn = document.createElement('button');
+    editBtn.className = 'edit-btn';
+    editBtn.innerHTML = '<i class="fas fa-edit"></i>';
+    editBtn.title = '編輯';
+    editBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        editWord(word.id);
+        showEditWordModal(word);
     });
-    actionButtons.appendChild(editButton);
     
-    // 刪除按鈕
-    const deleteButton = document.createElement('button');
-    deleteButton.classList.add('delete-btn');
-    deleteButton.innerHTML = '<i class="fas fa-trash-alt"></i>';
-    deleteButton.title = '刪除單字';
-    deleteButton.addEventListener('click', (e) => {
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'delete-btn';
+    deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+    deleteBtn.title = '刪除';
+    deleteBtn.addEventListener('click', (e) => {
         e.stopPropagation();
+        if (confirm(`確定要刪除單字「${word.word}」嗎？`)) {
         deleteWord(word.id);
+        }
     });
-    actionButtons.appendChild(deleteButton);
     
-    wordElement.appendChild(actionButtons);
+    const addToFlashcardBtn = document.createElement('button');
+    addToFlashcardBtn.className = 'add-to-flashcard-btn';
+    addToFlashcardBtn.innerHTML = '<i class="fas fa-copy"></i>';
+    addToFlashcardBtn.title = '加入記憶卡';
+    addToFlashcardBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        addToFlashcards(word.id);
+    });
     
-    // 添加點擊事件，點擊單字元素時顯示詳情
+    wordActions.appendChild(editBtn);
+    wordActions.appendChild(deleteBtn);
+    wordActions.appendChild(addToFlashcardBtn);
+    
+    wordElement.appendChild(wordInfo);
+    wordElement.appendChild(wordStatus);
+    wordElement.appendChild(wordActions);
+    
+    // 添加點擊事件以查看詳情
     wordElement.addEventListener('click', () => {
         viewWordDetails(word.id);
     });
@@ -787,143 +607,84 @@ function createWordElement(word) {
 }
 
 /**
- * 更新分頁
+ * 更新分頁控制
  */
 function updatePagination() {
-    console.log('更新分頁');
+    console.log('更新分頁控制');
     
-    const paginationContainer = document.getElementById('paginationContainer');
+    const paginationContainer = document.getElementById('pagination');
     if (!paginationContainer) {
-        console.error('找不到分頁容器 #paginationContainer');
-        
-        // 嘗試查找其他可能的容器
-        const alternativeContainer = document.querySelector('.vocabulary-content');
-        if (alternativeContainer) {
-            console.log('找到替代容器 .vocabulary-content');
-            
-            // 創建一個新的容器
-            const newContainer = document.createElement('div');
-            newContainer.id = 'paginationContainer';
-            newContainer.className = 'pagination';
-            alternativeContainer.appendChild(newContainer);
-            
-            // 重新調用更新函數
-            return updatePagination();
-        }
-        
+        console.error('找不到分頁容器');
         return;
     }
     
     // 清空分頁容器
     paginationContainer.innerHTML = '';
     
-    // 如果沒有過濾後的單字，隱藏分頁
+    // 如果沒有單字或單字數量少於每頁顯示數量，不顯示分頁
     if (!filteredWords || filteredWords.length === 0) {
-        paginationContainer.style.display = 'none';
+        console.log('沒有單字，不顯示分頁');
         return;
     }
-    
-    // 顯示分頁
-    paginationContainer.style.display = 'flex';
     
     // 計算總頁數
-    const totalPages = Math.ceil(filteredWords.length / window.itemsPerPage);
-    console.log(`總頁數: ${totalPages}，當前頁: ${window.currentPage}`);
+    const itemsPerPage = 10;
+    const totalPages = Math.ceil(filteredWords.length / itemsPerPage);
     
-    // 如果只有一頁，不顯示分頁
     if (totalPages <= 1) {
-        paginationContainer.style.display = 'none';
+        console.log('只有一頁，不顯示分頁');
         return;
     }
     
+    console.log(`總頁數: ${totalPages}, 當前頁: ${currentPage}`);
+    
     // 創建上一頁按鈕
-    const prevBtn = document.createElement('button');
-    prevBtn.className = 'pagination-btn';
-    prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
-    prevBtn.disabled = window.currentPage === 1;
-    prevBtn.addEventListener('click', () => {
-        if (window.currentPage > 1) {
-            window.currentPage--;
-            displayVocabularyPage();
-        }
-    });
-    paginationContainer.appendChild(prevBtn);
-    
-    // 創建頁碼按鈕
-    const maxPageButtons = 5; // 最多顯示的頁碼按鈕數
-    let startPage = Math.max(1, window.currentPage - Math.floor(maxPageButtons / 2));
-    let endPage = Math.min(totalPages, startPage + maxPageButtons - 1);
-    
-    // 調整起始頁，確保顯示足夠的頁碼按鈕
-    if (endPage - startPage + 1 < maxPageButtons) {
-        startPage = Math.max(1, endPage - maxPageButtons + 1);
+    if (currentPage > 1) {
+        const prevButton = document.createElement('button');
+        prevButton.className = 'page-btn prev-btn';
+        prevButton.innerHTML = '<i class="fas fa-chevron-left"></i>';
+        prevButton.addEventListener('click', () => {
+            displayVocabularyPage(currentPage - 1);
+        });
+        paginationContainer.appendChild(prevButton);
     }
     
-    // 如果起始頁不是第一頁，顯示第一頁和省略號
-    if (startPage > 1) {
-        const firstPageBtn = document.createElement('button');
-        firstPageBtn.className = 'pagination-btn';
-        firstPageBtn.textContent = '1';
-        firstPageBtn.addEventListener('click', () => {
-            window.currentPage = 1;
-            displayVocabularyPage();
-        });
-        paginationContainer.appendChild(firstPageBtn);
-        
-        if (startPage > 2) {
-            const ellipsis = document.createElement('span');
-            ellipsis.className = 'pagination-ellipsis';
-            ellipsis.textContent = '...';
-            paginationContainer.appendChild(ellipsis);
+    // 決定顯示哪些頁碼按鈕
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = Math.min(totalPages, startPage + 4);
+    
+    // 確保總是顯示5個按鈕（如果有足夠的頁數）
+    if (endPage - startPage < 4 && totalPages > 5) {
+        if (startPage === 1) {
+            endPage = Math.min(totalPages, 5);
+        } else {
+            startPage = Math.max(1, endPage - 4);
         }
     }
     
     // 創建頁碼按鈕
     for (let i = startPage; i <= endPage; i++) {
-        const pageBtn = document.createElement('button');
-        pageBtn.className = 'pagination-btn';
-        if (i === window.currentPage) {
-            pageBtn.classList.add('active');
-        }
-        pageBtn.textContent = i;
-        pageBtn.addEventListener('click', () => {
-            window.currentPage = i;
-            displayVocabularyPage();
+        const pageButton = document.createElement('button');
+        pageButton.className = 'page-btn' + (i === currentPage ? ' active' : '');
+        pageButton.textContent = i;
+        pageButton.addEventListener('click', () => {
+            if (i !== currentPage) {
+                displayVocabularyPage(i);
+            }
         });
-        paginationContainer.appendChild(pageBtn);
-    }
-    
-    // 如果結束頁不是最後一頁，顯示省略號和最後一頁
-    if (endPage < totalPages) {
-        if (endPage < totalPages - 1) {
-            const ellipsis = document.createElement('span');
-            ellipsis.className = 'pagination-ellipsis';
-            ellipsis.textContent = '...';
-            paginationContainer.appendChild(ellipsis);
-        }
-        
-        const lastPageBtn = document.createElement('button');
-        lastPageBtn.className = 'pagination-btn';
-        lastPageBtn.textContent = totalPages;
-        lastPageBtn.addEventListener('click', () => {
-            window.currentPage = totalPages;
-            displayVocabularyPage();
-        });
-        paginationContainer.appendChild(lastPageBtn);
+        paginationContainer.appendChild(pageButton);
     }
     
     // 創建下一頁按鈕
-    const nextBtn = document.createElement('button');
-    nextBtn.className = 'pagination-btn';
-    nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
-    nextBtn.disabled = window.currentPage === totalPages;
-    nextBtn.addEventListener('click', () => {
-        if (window.currentPage < totalPages) {
-            window.currentPage++;
-            displayVocabularyPage();
-        }
-    });
-    paginationContainer.appendChild(nextBtn);
+    if (currentPage < totalPages) {
+        const nextButton = document.createElement('button');
+        nextButton.className = 'page-btn next-btn';
+        nextButton.innerHTML = '<i class="fas fa-chevron-right"></i>';
+        nextButton.addEventListener('click', () => {
+            displayVocabularyPage(currentPage + 1);
+        });
+        paginationContainer.appendChild(nextButton);
+    }
 }
 
 /**
@@ -987,507 +748,143 @@ function searchVocabulary(term) {
 }
 
 /**
- * 添加新單字
+ * 新增單字
  */
-function addNewWord() {
-    console.log('開始添加新單字');
+async function addNewWord() {
+    console.log('新增單字');
+    
+    // 獲取表單數據
+    const word = document.getElementById('newWord').value.trim();
+    const phonetic = document.getElementById('newPhonetic').value.trim();
+    const partOfSpeech = document.getElementById('newPartOfSpeech').value;
+    const meaning = document.getElementById('newMeaning').value.trim();
+    const examples = document.getElementById('newExamples').value.trim();
+    const status = document.getElementById('newStatus').value;
+    
+    // 檢查必填字段
+    if (!word || !meaning) {
+        alert('請填寫單字和意思');
+        return;
+    }
+    
+    try {
+        // 創建新單字對象
+        const newWord = {
+            word,
+            phonetic,
+            partOfSpeech,
+            meaning,
+            examples,
+            status,
+            createdAt: new Date().toISOString()
+        };
+        
+        // 先隱藏模態框，避免操作延遲導致用戶重複點擊
+        hideAddWordModal();
+        
+        // 添加到資料庫
+        const id = await window.db.addWord(newWord);
+        console.log('單字添加成功，ID:', id);
+        
+        // 重新載入詞彙數據
+        await loadVocabularyData();
+        
+        // 顯示成功訊息，放在異步操作完成後
+        showNotification(`單字「${word}」已成功添加`, 'success');
+    } catch (error) {
+        console.error('添加單字失敗:', error);
+        showNotification('添加單字失敗，請稍後再試', 'error');
+    }
+}
+
+/**
+ * 保存編輯的單字
+ */
+async function saveEditedWord() {
+    console.log('保存編輯的單字');
+    
+    const id = parseInt(document.getElementById('editWordId').value);
+    
+    if (!id) {
+        console.error('無效的單字ID');
+        showNotification('保存失敗：無效的單字ID', 'error');
+        return;
+    }
     
     try {
         // 獲取表單數據
-        const wordInput = document.getElementById('newWord');
-        const pronunciationInput = document.getElementById('newPhonetic');
-        const partOfSpeechInput = document.getElementById('newPartOfSpeech');
-        const meaningInput = document.getElementById('newMeaning');
-        const exampleInput = document.getElementById('newExamples');
-        const statusInput = document.getElementById('newStatus');
+        const word = document.getElementById('editWord').value.trim();
+        const phonetic = document.getElementById('editPhonetic').value.trim();
+        const partOfSpeech = document.getElementById('editPartOfSpeech').value;
+        const meaning = document.getElementById('editMeaning').value.trim();
+        const examples = document.getElementById('editExamples').value.trim();
+        const status = document.getElementById('editStatus').value;
         
-        console.log('表單元素:', {
-            wordInput: wordInput ? 'found' : 'not found',
-            pronunciationInput: pronunciationInput ? 'found' : 'not found',
-            partOfSpeechInput: partOfSpeechInput ? 'found' : 'not found',
-            meaningInput: meaningInput ? 'found' : 'not found',
-            exampleInput: exampleInput ? 'found' : 'not found',
-            statusInput: statusInput ? 'found' : 'not found'
-        });
-        
-        if (!wordInput || !pronunciationInput || !partOfSpeechInput || !meaningInput || !exampleInput || !statusInput) {
-            console.error('無法獲取表單元素');
-            alert('無法獲取表單元素，請重新整理頁面後再試');
+        // 檢查必填字段
+        if (!word || !meaning) {
+            showNotification('請填寫單字和意思', 'warning');
             return;
         }
         
-        const wordValue = wordInput.value.trim();
-        const pronunciationValue = pronunciationInput.value.trim();
-        const partOfSpeechValue = partOfSpeechInput.value;
-        const meaningValue = meaningInput.value.trim();
-        const exampleValue = exampleInput.value.trim();
-        const statusValue = statusInput.value;
-        
-        console.log('表單數據:', {
-            word: wordValue,
-            pronunciation: pronunciationValue,
-            partOfSpeech: partOfSpeechValue,
-            meaning: meaningValue,
-            example: exampleValue,
-            status: statusValue
-        });
-        
-        // 獲取選擇的詞彙表
-        let selectedLists = ['all']; // 默認使用 'all' 詞彙表
-        
-        // 驗證必填項
-        if (!wordValue || !meaningValue) {
-            alert('請填寫英文單字和中文意思');
-            return;
-        }
-        
-        // 確保 window.appData 存在
-        if (!window.appData) {
-            console.log('window.appData 不存在，創建新的 appData 對象');
-            window.appData = {
-                vocabulary: [],
-                userSettings: {},
-                learningHistory: [],
-                journal: [],
-                achievements: []
-            };
-        }
-        
-        // 確保 window.appData.vocabulary 是一個陣列
-        if (!window.appData.vocabulary) {
-            console.log('window.appData.vocabulary 不存在，創建新的 vocabulary 陣列');
-            window.appData.vocabulary = [];
-        } else if (!Array.isArray(window.appData.vocabulary)) {
-            console.log('window.appData.vocabulary 不是陣列，重新初始化為空陣列');
-            window.appData.vocabulary = [];
-        }
-        
-        console.log('當前詞彙數量:', window.appData.vocabulary.length);
-        
-        // 查找最大ID
-        let maxId = 0;
-        if (Array.isArray(window.appData.vocabulary)) {
-            window.appData.vocabulary.forEach(word => {
-                if (word.id > maxId) maxId = word.id;
-            });
-        }
-        
-        // 創建新單字對象
-        const newWord = {
-            id: maxId + 1,
-            word: wordValue,
-            phonetic: pronunciationValue,
-            partOfSpeech: partOfSpeechValue,
-            meaning: meaningValue,
-            examples: exampleValue ? exampleValue.split('\n').filter(line => line.trim()) : [],
-            notes: '',
-            status: statusValue,
-            category: '',
-            synonyms: [],
-            antonyms: [],
-            associations: [],
-            context: '',
-            difficulty: 2,
-            lists: selectedLists.length > 0 ? selectedLists : ['all'],
-            lastReviewed: null,
-            nextReview: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        // 創建更新的單字對象
+        const updatedWord = {
+            id,
+            word,
+            phonetic,
+            partOfSpeech,
+            meaning,
+            examples,
+            status,
+            updatedAt: new Date().toISOString()
         };
         
-        console.log('新單字對象:', newWord);
-        
-        // 添加到全局數據
-        console.log('準備添加單字到全局數據');
-        
-        // 添加新單字
-        window.appData.vocabulary.push(newWord);
-        console.log('已添加單字到全局數據，當前詞彙數量:', window.appData.vocabulary.length);
-        
-        // 保存到本地儲存
-        try {
-            // 直接使用 localStorage API 保存數據
-            localStorage.setItem('vocabMasterData', JSON.stringify(window.appData));
-            console.log('通過直接使用 localStorage API 保存數據');
-        } catch (e) {
-            console.error('保存數據時發生錯誤:', e);
-            alert('警告：保存數據時發生錯誤，請確保您的瀏覽器支持本地存儲');
-        }
-        
-        // 更新UI
-        loadVocabularyData(currentVocabList);
-        updateVocabListCounts();
-        
-        // 重置表單
-        const form = document.getElementById('addWordForm');
-        if (form) {
-            form.reset();
-        }
-        
-        // 關閉模態框
-        hideAddWordModal();
-        
-        // 顯示成功訊息
-        alert(`單字 "${wordValue}" 已成功添加`);
-    } catch (error) {
-        console.error('添加單字時發生錯誤:', error);
-        alert('添加單字失敗: ' + error.message);
-    }
-}
-
-/**
- * 編輯單字
- * @param {number} wordId - 單字ID
- */
-function editWord(wordId) {
-    console.log(`開始編輯單字 ID: ${wordId}`);
-    
-    // 檢查全局數據是否可用
-    if (!window.appData || !window.appData.vocabulary) {
-        console.error('無法獲取詞彙數據');
-        alert('編輯單字失敗：無法獲取詞彙數據');
-        return;
-    }
-    
-    // 查找單字
-    const word = window.appData.vocabulary.find(w => w.id === wordId);
-    if (!word) {
-        alert('找不到要編輯的單字');
-        return;
-    }
-    
-    console.log('找到單字:', word);
-    
-    // 填充編輯表單
-    fillEditForm(word);
-    
-    // 顯示編輯模態框
-    showEditWordModal();
-}
-
-/**
- * 填充編輯表單
- * @param {Object} word - 單字對象
- */
-function fillEditForm(word) {
-    // 檢查是否已存在編輯模態框
-    let editModal = document.getElementById('editWordModal');
-    
-    // 如果不存在，創建模態框
-    if (!editModal) {
-        const modalHTML = `
-        <div id="editWordModal" class="modal">
-            <div class="modal-header">
-                <h3>編輯單字</h3>
-                <button class="close-modal-btn"><i class="fas fa-times"></i></button>
-            </div>
-            <div class="modal-body">
-                <form id="editWordForm">
-                    <input type="hidden" id="editWordId">
-                    <div class="form-group">
-                        <label for="editWord">英文單字</label>
-                        <input type="text" id="editWord" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="editPhonetic">音標</label>
-                        <input type="text" id="editPhonetic" placeholder="/ˈsæm.pəl/">
-                    </div>
-                    <div class="form-group">
-                        <label for="editPartOfSpeech">詞性</label>
-                        <select id="editPartOfSpeech">
-                            <option value="noun">名詞</option>
-                            <option value="verb">動詞</option>
-                            <option value="adjective">形容詞</option>
-                            <option value="adverb">副詞</option>
-                            <option value="preposition">介系詞</option>
-                            <option value="conjunction">連接詞</option>
-                            <option value="interjection">感嘆詞</option>
-                            <option value="pronoun">代名詞</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="editMeaning">中文意思</label>
-                        <input type="text" id="editMeaning" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="editExamples">例句</label>
-                        <textarea id="editExamples" rows="3" placeholder="每行一個例句"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="editStatus">學習狀態</label>
-                        <select id="editStatus">
-                            <option value="new">待學習</option>
-                            <option value="learning">學習中</option>
-                            <option value="mastered">已掌握</option>
-                            <option value="difficult">困難</option>
-                        </select>
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" id="cancelEditBtn" class="btn-secondary">取消</button>
-                        <button type="submit" class="btn-primary">保存</button>
-                    </div>
-                </form>
-            </div>
-        </div>`;
-        
-        // 添加模態框到文檔
-        const modalContainer = document.createElement('div');
-        modalContainer.innerHTML = modalHTML;
-        document.body.appendChild(modalContainer.firstElementChild);
-        
-        // 獲取新創建的模態框
-        editModal = document.getElementById('editWordModal');
-        
-        // 綁定表單提交事件
-        const editWordForm = document.getElementById('editWordForm');
-        if (editWordForm) {
-            editWordForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                saveEditedWord();
-            });
-        }
-        
-        // 綁定取消按鈕事件
-        const cancelEditBtn = document.getElementById('cancelEditBtn');
-        if (cancelEditBtn) {
-            cancelEditBtn.addEventListener('click', () => {
-                hideEditWordModal();
-            });
-        }
-        
-        // 綁定關閉按鈕事件
-        const closeBtn = editModal.querySelector('.close-modal-btn');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => {
-                hideEditWordModal();
-            });
-        }
-    }
-    
-    // 填充表單數據
-    document.getElementById('editWordId').value = word.id;
-    document.getElementById('editWord').value = word.word;
-    document.getElementById('editPhonetic').value = word.phonetic || '';
-    document.getElementById('editPartOfSpeech').value = word.partOfSpeech || 'noun';
-    document.getElementById('editMeaning').value = word.meaning;
-    document.getElementById('editExamples').value = (word.examples || []).join('\n');
-    document.getElementById('editStatus').value = word.status || 'new';
-    
-    // 移除對不存在的 editVocabListInput 元素的引用
-    // const vocabListInput = document.getElementById('editVocabListInput');
-    // Array.from(vocabListInput.options).forEach(option => {
-    //     option.selected = word.lists && word.lists.includes(option.value);
-    // });
-}
-
-/**
- * 顯示編輯單字模態框
- */
-function showEditWordModal() {
-    console.log('顯示編輯單字模態框');
-    
-    const modal = document.getElementById('editWordModal');
-    const overlay = document.getElementById('modalOverlay');
-    
-    if (!modal || !overlay) {
-        console.error('找不到編輯模態框或遮罩元素');
-        if (!modal) console.error('找不到 editWordModal 元素');
-        if (!overlay) console.error('找不到 modalOverlay 元素');
-        alert('無法開啟編輯單字視窗');
-        return;
-    }
-    
-    console.log('模態框和遮罩元素都存在，添加 active 類');
-    
-    // 添加 modal-open 類到 body
-    document.body.classList.add('modal-open');
-    
-    // 確保模態框和遮罩層可見
-    modal.style.display = 'block';
-    overlay.style.display = 'block';
-    
-    // 確保輸入框可以點選
-    const inputs = modal.querySelectorAll('input, select, textarea');
-    inputs.forEach(input => {
-        input.style.pointerEvents = 'auto';
-        input.style.zIndex = '1002';
-    });
-    
-    // 使用 setTimeout 確保 display 屬性生效後再添加 active 類
-    setTimeout(() => {
-        modal.classList.add('active');
-        overlay.classList.add('active');
-        
-        // 聚焦第一個輸入框
-        const firstInput = modal.querySelector('input:not([type="hidden"])');
-        if (firstInput) {
-            firstInput.focus();
-        }
-        
-        console.log('已添加 active 類');
-    }, 10);
-}
-
-/**
- * 隱藏編輯單字模態框
- */
-function hideEditWordModal() {
-    console.log('隱藏編輯單字模態框');
-    
-    const modal = document.getElementById('editWordModal');
-    const overlay = document.getElementById('modalOverlay');
-    
-    if (!modal || !overlay) {
-        console.error('找不到編輯模態框或遮罩元素');
-        return;
-    }
-    
-    modal.classList.remove('active');
-    overlay.classList.remove('active');
-    
-    // 移除 modal-open 類
-    document.body.classList.remove('modal-open');
-    
-    // 使用 setTimeout 確保過渡效果完成後再隱藏元素
-    setTimeout(() => {
-        modal.style.display = 'none';
-        overlay.style.display = 'none';
-    }, 300);
-}
-
-/**
- * 保存編輯後的單字
- */
-function saveEditedWord() {
-    console.log('保存編輯後的單字');
-    
-    // 獲取表單數據
-    const wordId = parseInt(document.getElementById('editWordId').value);
-    const wordInput = document.getElementById('editWord').value.trim();
-    const pronunciationInput = document.getElementById('editPhonetic').value.trim();
-    const partOfSpeechInput = document.getElementById('editPartOfSpeech').value;
-    const meaningInput = document.getElementById('editMeaning').value.trim();
-    const exampleInput = document.getElementById('editExamples').value.trim();
-    const statusInput = document.getElementById('editStatus').value;
-    
-    console.log('編輯表單數據:', {
-        wordId,
-        word: wordInput,
-        pronunciation: pronunciationInput,
-        partOfSpeech: partOfSpeechInput,
-        meaning: meaningInput,
-        example: exampleInput,
-        status: statusInput
-    });
-    
-    // 獲取選擇的詞彙表
-    let selectedLists = ['all']; // 默認使用 'all' 詞彙表
-    
-    // 驗證必填項
-    if (!wordInput || !meaningInput) {
-        alert('請填寫英文單字和中文意思');
-        return;
-    }
-    
-    // 檢查全局數據是否可用
-    if (!window.appData || !window.appData.vocabulary) {
-        console.error('全局詞彙數據不可用');
-        alert('保存單字失敗：無法獲取詞彙數據');
-        return;
-    }
-    
-    // 查找單字索引
-    const wordIndex = window.appData.vocabulary.findIndex(w => w.id === wordId);
-    if (wordIndex === -1) {
-        console.error(`找不到ID為 ${wordId} 的單字`);
-        alert('找不到要編輯的單字');
-        return;
-    }
-    
-    // 獲取原單字對象
-    const originalWord = window.appData.vocabulary[wordIndex];
-    console.log('原單字對象:', originalWord);
-    
-    // 更新單字數據
-    const updatedWord = {
-        ...originalWord,
-        word: wordInput,
-        phonetic: pronunciationInput,
-        partOfSpeech: partOfSpeechInput,
-        meaning: meaningInput,
-        examples: exampleInput ? exampleInput.split('\n').filter(line => line.trim()) : [],
-        status: statusInput,
-        lists: selectedLists.length > 0 ? selectedLists : ['all'],
-        lastReviewed: new Date().toISOString()
-    };
-    
-    console.log('更新後的單字對象:', updatedWord);
-    
-    // 更新全局數據
-    window.appData.vocabulary[wordIndex] = updatedWord;
-    
-    // 保存到本地儲存
-    try {
-        localStorage.setItem('vocabMasterData', JSON.stringify(window.appData));
-        console.log('數據已保存到本地儲存');
-        
-        // 更新UI
-        loadVocabularyData(currentVocabList);
-        
-        // 關閉模態框
+        // 隱藏模態框
         hideEditWordModal();
         
+        // 更新單字
+        await window.db.updateWord(updatedWord);
+        console.log('單字更新成功');
+        
+        // 重新載入詞彙數據
+        await loadVocabularyData();
+        
         // 顯示成功訊息
-        alert(`單字 "${wordInput}" 已成功更新`);
-    } catch (e) {
-        console.error('保存數據時發生錯誤:', e);
-        alert('保存單字失敗：無法保存數據');
+        showNotification(`單字「${word}」更新成功`, 'success');
+    } catch (error) {
+        console.error('更新單字失敗:', error);
+        showNotification('更新單字失敗，請稍後再試', 'error');
     }
 }
 
 /**
  * 刪除單字
- * @param {number} wordId - 單字ID
  */
-function deleteWord(wordId) {
-    console.log(`開始刪除單字 ID: ${wordId}`);
+async function deleteWord(wordId) {
+    console.log('刪除單字:', wordId);
     
-    if (!confirm('確定要刪除這個單字嗎？')) {
-        console.log('用戶取消刪除');
+    if (!wordId) {
+        console.error('無效的單字ID');
+        showNotification('刪除失敗：無效的單字ID', 'error');
         return;
     }
     
-    // 檢查全局數據是否可用
-    if (!window.appData || !window.appData.vocabulary) {
-        console.error('全局詞彙數據不可用');
-        alert('刪除單字失敗：無法獲取詞彙數據');
-        return;
-    }
-    
-    // 從全局數據中刪除
-    const index = window.appData.vocabulary.findIndex(word => word.id === wordId);
-    if (index !== -1) {
-        const wordToDelete = window.appData.vocabulary[index];
-        console.log(`找到要刪除的單字:`, wordToDelete);
+    try {
+        // 尋找要刪除的單字以顯示名稱
+        const wordToDelete = filteredWords.find(w => w.id === wordId);
+        const wordName = wordToDelete ? wordToDelete.word : '未知單字';
         
-        window.appData.vocabulary.splice(index, 1);
-        console.log(`已從全局數據中刪除單字，剩餘單字數量: ${window.appData.vocabulary.length}`);
+        // 刪除單字
+        await window.db.deleteWord(wordId);
+        console.log('單字刪除成功');
         
-        // 保存到本地儲存
-        try {
-            localStorage.setItem('vocabMasterData', JSON.stringify(window.appData));
-            console.log('數據已保存到本地儲存');
-            
-            // 更新UI
-            loadVocabularyData(currentVocabList);
-            
-            // 顯示成功訊息
-            alert(`單字 "${wordToDelete.word}" 已成功刪除`);
-        } catch (e) {
-            console.error('保存數據時發生錯誤:', e);
-            alert('刪除單字失敗：無法保存數據');
-        }
-    } else {
-        console.error(`找不到ID為 ${wordId} 的單字`);
-        alert('找不到要刪除的單字');
+        // 重新載入詞彙數據
+        await loadVocabularyData();
+        
+        // 顯示成功訊息
+        showNotification(`單字「${wordName}」已成功刪除`, 'success');
+    } catch (error) {
+        console.error('刪除單字失敗:', error);
+        showNotification('刪除單字失敗，請稍後再試', 'error');
     }
 }
 
@@ -1600,27 +997,30 @@ function viewWordDetails(wordId) {
 }
 
 /**
- * 顯示單字詳情模態框
+ * 顯示新增單字的模態框
  */
-function showWordDetailsModal() {
-    console.log('顯示單字詳情模態框');
+function showAddWordModal() {
+    console.log('顯示新增單字的模態框');
     
-    const modal = document.getElementById('wordDetailsModal');
+    const modal = document.getElementById('addWordModal');
     const overlay = document.getElementById('modalOverlay');
     
     if (!modal || !overlay) {
-        console.error('找不到單字詳情模態框或遮罩元素');
+        console.error('找不到模態框或遮罩層元素');
         return;
     }
     
-    // 添加 modal-open 類到 body
-    document.body.classList.add('modal-open');
+    // 重置表單
+    const form = document.getElementById('addWordForm');
+    if (form) {
+        form.reset();
+    }
     
-    // 確保模態框和遮罩層可見
+    // 顯示模態框
     modal.style.display = 'block';
     overlay.style.display = 'block';
     
-    // 使用 setTimeout 確保 display 屬性生效後再添加 active 類
+    // 添加活動類
     setTimeout(() => {
         modal.classList.add('active');
         overlay.classList.add('active');
@@ -1628,26 +1028,133 @@ function showWordDetailsModal() {
 }
 
 /**
- * 隱藏單字詳情模態框
+ * 隱藏新增單字的模態框
  */
-function hideWordDetailsModal() {
-    console.log('隱藏單字詳情模態框');
+function hideAddWordModal() {
+    console.log('隱藏新增單字的模態框');
+    
+    const modal = document.getElementById('addWordModal');
+    const overlay = document.getElementById('modalOverlay');
+    
+    if (!modal || !overlay) {
+        console.error('找不到模態框或遮罩層元素');
+        return;
+    }
+    
+    // 移除活動類
+    modal.classList.remove('active');
+    overlay.classList.remove('active');
+    
+    // 延遲隱藏，以便完成過渡動畫
+    setTimeout(() => {
+        modal.style.display = 'none';
+        overlay.style.display = 'none';
+    }, 300);
+}
+
+/**
+ * 顯示編輯單字的模態框
+ */
+function showEditWordModal(word) {
+    console.log('顯示編輯單字的模態框', word);
+    
+    const modal = document.getElementById('editWordModal');
+    const overlay = document.getElementById('modalOverlay');
+    
+    if (!modal || !overlay) {
+        console.error('找不到模態框或遮罩層元素');
+        return;
+    }
+    
+    // 填充表單
+    document.getElementById('editWordId').value = word.id;
+    document.getElementById('editWord').value = word.word;
+    document.getElementById('editPhonetic').value = word.phonetic || '';
+    document.getElementById('editPartOfSpeech').value = word.partOfSpeech || '';
+    document.getElementById('editMeaning').value = word.meaning;
+    document.getElementById('editExamples').value = word.examples || '';
+    document.getElementById('editStatus').value = word.status;
+    
+    // 顯示模態框
+    modal.style.display = 'block';
+    overlay.style.display = 'block';
+    
+    // 添加活動類
+    setTimeout(() => {
+        modal.classList.add('active');
+        overlay.classList.add('active');
+    }, 10);
+}
+
+/**
+ * 隱藏編輯單字的模態框
+ */
+function hideEditWordModal() {
+    console.log('隱藏編輯單字的模態框');
+    
+    const modal = document.getElementById('editWordModal');
+    const overlay = document.getElementById('modalOverlay');
+    
+    if (!modal || !overlay) {
+        console.error('找不到模態框或遮罩層元素');
+        return;
+    }
+    
+    // 移除活動類
+    modal.classList.remove('active');
+    overlay.classList.remove('active');
+    
+    // 延遲隱藏，以便完成過渡動畫
+    setTimeout(() => {
+        modal.style.display = 'none';
+        overlay.style.display = 'none';
+    }, 300);
+}
+
+/**
+ * 顯示單字詳情的模態框
+ */
+function showWordDetailsModal() {
+    console.log('顯示單字詳情的模態框');
     
     const modal = document.getElementById('wordDetailsModal');
     const overlay = document.getElementById('modalOverlay');
     
     if (!modal || !overlay) {
-        console.error('找不到單字詳情模態框或遮罩元素');
+        console.error('找不到模態框或遮罩層元素');
         return;
     }
     
+    // 顯示模態框
+    modal.style.display = 'block';
+    overlay.style.display = 'block';
+    
+    // 添加活動類
+    setTimeout(() => {
+        modal.classList.add('active');
+        overlay.classList.add('active');
+    }, 10);
+}
+
+/**
+ * 隱藏單字詳情的模態框
+ */
+function hideWordDetailsModal() {
+    console.log('隱藏單字詳情的模態框');
+    
+    const modal = document.getElementById('wordDetailsModal');
+    const overlay = document.getElementById('modalOverlay');
+    
+    if (!modal || !overlay) {
+        console.error('找不到模態框或遮罩層元素');
+        return;
+    }
+    
+    // 移除活動類
     modal.classList.remove('active');
     overlay.classList.remove('active');
     
-    // 移除 modal-open 類
-    document.body.classList.remove('modal-open');
-    
-    // 使用 setTimeout 確保過渡效果完成後再隱藏元素
+    // 延遲隱藏，以便完成過渡動畫
     setTimeout(() => {
         modal.style.display = 'none';
         overlay.style.display = 'none';
@@ -1736,29 +1243,29 @@ function translateStatus(status) {
 /**
  * 初始化導入/導出功能
  */
-function initImportExportFeatures() {
+async function initImportExportFeatures() {
     console.log('初始化導入/導出功能');
     
-    // 導入按鈕
+    // 綁定導入按鈕事件
     const importBtn = document.getElementById('importBtn');
-    if (importBtn) {
-        importBtn.addEventListener('click', () => {
-            document.getElementById('importFileInput').click();
-        });
-    }
-    
-    // 導入文件輸入
     const importFileInput = document.getElementById('importFileInput');
-    if (importFileInput) {
-        importFileInput.addEventListener('change', (e) => {
+    
+    if (importBtn && importFileInput) {
+        importBtn.addEventListener('click', () => {
+            importFileInput.click();
+        });
+        
+        importFileInput.addEventListener('change', async (e) => {
+            if (e.target.files.length > 0) {
             const file = e.target.files[0];
-            if (file) {
-                importVocabulary(file);
+                await importVocabulary(file);
+                // 清空文件輸入，以便下次選擇同一文件時也能觸發事件
+                importFileInput.value = '';
             }
         });
     }
     
-    // 導出 JSON 按鈕
+    // 綁定導出 JSON 按鈕事件
     const exportJsonBtn = document.getElementById('exportJsonBtn');
     if (exportJsonBtn) {
         exportJsonBtn.addEventListener('click', () => {
@@ -1766,7 +1273,7 @@ function initImportExportFeatures() {
         });
     }
     
-    // 導出 CSV 按鈕
+    // 綁定導出 CSV 按鈕事件
     const exportCsvBtn = document.getElementById('exportCsvBtn');
     if (exportCsvBtn) {
         exportCsvBtn.addEventListener('click', () => {
@@ -1774,42 +1281,76 @@ function initImportExportFeatures() {
         });
     }
     
-    // 添加匯入國中基礎2000單字按鈕
-    const headerActions = document.querySelector('#vocabulary .header-actions');
-    if (headerActions && !document.getElementById('importBasic2000Btn')) {
-        const importBasic2000Btn = document.createElement('button');
-        importBasic2000Btn.id = 'importBasic2000Btn';
-        importBasic2000Btn.className = 'primary-btn';
-        importBasic2000Btn.innerHTML = '<i class="fas fa-download"></i> 匯入國中基礎2000單字';
-        
-        // 確保 importBasic2000Words 函數可用
-        if (typeof importBasic2000Words === 'function') {
-            importBasic2000Btn.addEventListener('click', importBasic2000Words);
-            headerActions.appendChild(importBasic2000Btn);
-            console.log('已添加匯入國中基礎2000單字按鈕');
-        } else {
-            console.error('找不到 importBasic2000Words 函數，嘗試載入 import_basic_2000.js');
-            
-            // 動態載入 import_basic_2000.js
-            const script = document.createElement('script');
-            script.src = 'js/import_basic_2000.js';
-            script.onload = function() {
-                if (typeof importBasic2000Words === 'function') {
-                    importBasic2000Btn.addEventListener('click', importBasic2000Words);
-                    headerActions.appendChild(importBasic2000Btn);
-                    console.log('已載入 import_basic_2000.js 並添加匯入按鈕');
-                } else {
-                    console.error('載入 import_basic_2000.js 後仍找不到 importBasic2000Words 函數');
-                }
-            };
-            script.onerror = function() {
-                console.error('載入 import_basic_2000.js 失敗');
-            };
-            document.head.appendChild(script);
-        }
-    } else {
-        console.log('已存在匯入國中基礎2000單字按鈕或找不到 header-actions 容器');
+    // 添加基礎2005單字導入按鈕
+    addBasic2005ImportButton();
+}
+
+/**
+ * 添加基礎2005單字導入按鈕
+ */
+function addBasic2005ImportButton() {
+    // 獲取導入/導出按鈕容器
+    const importExportContainer = document.querySelector('.tools-container');
+    if (!importExportContainer) {
+        console.error('找不到導入/導出按鈕容器');
+        return;
     }
+    
+    // 檢查是否已存在導入基礎2005單字按鈕
+    if (document.getElementById('importBasic2005Btn')) {
+        console.log('已存在導入基礎2005單字按鈕');
+        return;
+    }
+    
+    // 創建基礎2005單字導入按鈕
+    const importBasic2005Btn = document.createElement('button');
+    importBasic2005Btn.id = 'importBasic2005Btn';
+    importBasic2005Btn.className = 'btn btn-primary';
+    importBasic2005Btn.innerHTML = '<i class="fas fa-book"></i> 導入國中基礎2005單字';
+    importBasic2005Btn.title = '導入國中基礎2005個單字';
+    
+    // 添加點擊事件
+    importBasic2005Btn.addEventListener('click', async () => {
+        if (confirm('確定要導入國中基礎2005個單字嗎？這將創建一個新的詞彙組並添加所有單字。')) {
+            // 確認window.db對象中有importBasic2005Words函數
+            if (window.db && typeof window.db.importBasic2005Words === 'function') {
+                try {
+                    // 显示加载中提示
+                    showNotification('正在導入，請稍候...', 'info');
+                    
+                    // 调用导入函数
+                    const result = await window.db.importBasic2005Words();
+                    
+                    if (result.success) {
+                        showNotification(`導入完成！新增: ${result.added} 個，已存在: ${result.skipped} 個`, 'success');
+                    } else {
+                        showNotification(`導入失敗: ${result.error}`, 'error');
+                    }
+                } catch (error) {
+                    console.error('導入國中基礎2005單字失敗:', error);
+                    showNotification('導入失敗，請稍後再試', 'error');
+                }
+            } else {
+                console.error('window.db.importBasic2005Words 函數不可用');
+                showNotification('導入功能不可用，請確保已加載相關資源', 'error');
+                
+                // 嘗試動態加載 database.js
+                const script = document.createElement('script');
+                script.src = 'js/database.js';
+                script.onload = () => {
+                    showNotification('資源已載入，請再次嘗試導入', 'info');
+                };
+                script.onerror = () => {
+                    showNotification('無法載入導入功能所需資源', 'error');
+                };
+                document.head.appendChild(script);
+            }
+        }
+    });
+    
+    // 將按鈕添加到容器中
+    importExportContainer.appendChild(importBasic2005Btn);
+    console.log('已添加導入基礎2005單字按鈕');
 }
 
 /**
@@ -2095,157 +1636,340 @@ if (typeof window.exportVocabulary !== 'function') {
 }
 
 /**
- * 初始化模態框關閉按鈕
+ * 初始化詞彙操作
  */
-function initModalCloseButtons() {
-    // 添加單字模態框關閉按鈕
-    const addWordModalCloseBtn = document.querySelector('#addWordModal .close-modal-btn');
-    if (addWordModalCloseBtn) {
-        console.log('找到 addWordModal 關閉按鈕，添加點擊事件');
-        // 移除可能存在的舊事件監聽器
-        addWordModalCloseBtn.removeEventListener('click', hideAddWordModal);
-        // 添加新的事件監聽器
-        addWordModalCloseBtn.addEventListener('click', function() {
-            console.log('點擊了 addWordModal 關閉按鈕');
-            hideAddWordModal();
+async function initVocabOperations() {
+    console.log('初始化詞彙操作');
+    
+    // 綁定新增單字按鈕事件
+    const addWordBtn = document.getElementById('addWordBtn');
+    if (addWordBtn) {
+        addWordBtn.addEventListener('click', () => {
+            showAddWordModal();
         });
     } else {
-        console.error('找不到 addWordModal 關閉按鈕');
-    }
-}
-
-/**
- * 更新詞彙列表計數
- */
-function updateVocabListCounts() {
-    console.log('更新詞彙列表計數');
-    
-    if (!window.appData || !window.appData.vocabulary) {
-        console.error('無法更新詞彙列表計數：appData 或 vocabulary 未定義');
-        return;
+        console.error('找不到 addWordBtn 元素');
     }
     
-    const vocabulary = window.appData.vocabulary;
-    console.log(`總詞彙數量: ${vocabulary.length}`);
-    
-    // 更新所有單字數量
-    const allCount = document.getElementById('allCount');
-    if (allCount) {
-        allCount.textContent = vocabulary.length;
-        console.log(`更新所有單字數量: ${vocabulary.length}`);
+    // 綁定工具欄的新增單字按鈕事件
+    const addWordBtnToolbar = document.getElementById('addWordBtnToolbar');
+    if (addWordBtnToolbar) {
+        addWordBtnToolbar.addEventListener('click', () => {
+            showAddWordModal();
+        });
     } else {
-        console.error('找不到 allCount 元素');
+        console.error('找不到 addWordBtnToolbar 元素');
     }
     
-    // 更新未學習數量
-    const notLearnedCount = document.getElementById('notLearnedCount');
-    if (notLearnedCount) {
-        const count = vocabulary.filter(word => word.status === 'notLearned').length;
-        notLearnedCount.textContent = count;
-        console.log(`更新未學習數量: ${count}`);
-    } else {
-        console.error('找不到 notLearnedCount 元素');
-    }
+    // 初始化搜索功能
+    const searchBtn = document.getElementById('searchBtn');
+    const searchInput = document.getElementById('searchInput');
     
-    // 更新學習中數量
-    const learningCount = document.getElementById('learningCount');
-    if (learningCount) {
-        const count = vocabulary.filter(word => word.status === 'learning').length;
-        learningCount.textContent = count;
-        console.log(`更新學習中數量: ${count}`);
-    } else {
-        console.error('找不到 learningCount 元素');
-    }
-    
-    // 更新已掌握數量
-    const masteredCount = document.getElementById('masteredCount');
-    if (masteredCount) {
-        const count = vocabulary.filter(word => word.status === 'mastered').length;
-        masteredCount.textContent = count;
-        console.log(`更新已掌握數量: ${count}`);
-    } else {
-        console.error('找不到 masteredCount 元素');
-    }
-    
-    // 更新自定義列表數量
-    if (window.appData.customLists && window.appData.customLists.length > 0) {
-        window.appData.customLists.forEach(list => {
-            const countElement = document.getElementById(`${list.id}Count`);
-            if (countElement) {
-                const count = vocabulary.filter(word => 
-                    word.lists && word.lists.includes(list.id)
-                ).length;
-                countElement.textContent = count;
-                console.log(`更新自定義列表 ${list.name} 數量: ${count}`);
-            } else {
-                console.error(`找不到 ${list.id}Count 元素`);
+    if (searchBtn && searchInput) {
+        searchBtn.addEventListener('click', () => {
+            searchVocabulary(searchInput.value);
+        });
+        
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                searchVocabulary(searchInput.value);
             }
         });
     }
+    
+    // 初始化模態框關閉按鈕
+    const closeButtons = document.querySelectorAll('.close-modal');
+    closeButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            hideAddWordModal();
+            hideEditWordModal();
+            hideWordDetailsModal();
+        });
+    });
+    
+    // 初始化新增單字表單
+    const addWordForm = document.getElementById('addWordForm');
+    if (addWordForm) {
+        addWordForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            addNewWord();
+        });
+    } else {
+        console.error('找不到 addWordForm 元素');
+    }
+    
+    // 初始化編輯單字表單
+    const editWordForm = document.getElementById('editWordForm');
+    if (editWordForm) {
+        editWordForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            saveEditedWord();
+        });
+    } else {
+        console.error('找不到 editWordForm 元素');
+    }
+    
+    // 初始化模態框遮罩層
+    const modalOverlay = document.getElementById('modalOverlay');
+    if (modalOverlay) {
+        modalOverlay.addEventListener('click', () => {
+            hideAddWordModal();
+            hideEditWordModal();
+            hideWordDetailsModal();
+        });
+    } else {
+        console.error('找不到 modalOverlay 元素');
+    }
+    
+    // 初始化導入/導出功能
+    await initImportExportFeatures();
+    console.log('導入/導出功能初始化完成');
 }
 
 /**
- * 初始化搜索功能
+ * 顯示通知消息
+ * @param {string} message - 消息內容
+ * @param {string} type - 消息類型 (info, success, error, warning)
  */
-function initSearchFunction() {
-    console.log('初始化搜索功能');
+function showNotification(message, type = 'info') {
+    // 檢查是否已有通知元素
+    let notification = document.querySelector('.notification');
     
-    const searchInput = document.getElementById('searchInput');
-    const searchButton = document.getElementById('searchButton');
-    const clearSearchButton = document.getElementById('clearSearchButton');
-    
-    if (!searchInput) {
-        console.error('找不到搜索輸入框');
-        return;
+    // 如果沒有，創建一個
+    if (!notification) {
+        notification = document.createElement('div');
+        notification.className = 'notification';
+        document.body.appendChild(notification);
     }
     
-    // 設置全局搜索詞變量
-    window.searchTerm = '';
+    // 設置通知類型和訊息
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
     
-    // 添加搜索輸入事件
-    searchInput.addEventListener('input', function() {
-        window.searchTerm = this.value.trim();
-        
-        // 如果清除按鈕存在，根據搜索詞顯示或隱藏
-        if (clearSearchButton) {
-            clearSearchButton.style.display = window.searchTerm ? 'block' : 'none';
+    // 顯示通知
+    notification.style.display = 'block';
+    notification.style.opacity = '1';
+    
+    // 3秒後隱藏
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        setTimeout(() => {
+            notification.style.display = 'none';
+        }, 500);
+    }, 3000);
+}
+
+/**
+ * 添加詞彙表樣式
+ */
+function addVocabularyStyles() {
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+        .vocabulary-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 20px;
         }
         
-        // 如果搜索詞為空，立即過濾
-        if (!window.searchTerm) {
-            filterVocabulary();
+        .vocab-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
         }
-    });
-    
-    // 添加搜索按鈕點擊事件
-    if (searchButton) {
-        searchButton.addEventListener('click', function() {
-            window.searchTerm = searchInput.value.trim();
-            filterVocabulary();
-        });
-    }
-    
-    // 添加清除搜索按鈕點擊事件
-    if (clearSearchButton) {
-        clearSearchButton.style.display = 'none'; // 初始隱藏
-        clearSearchButton.addEventListener('click', function() {
-            searchInput.value = '';
-            window.searchTerm = '';
-            this.style.display = 'none';
-            filterVocabulary();
-            
-            // 聚焦搜索框
-            searchInput.focus();
-        });
-    }
-    
-    // 添加回車鍵搜索
-    searchInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            window.searchTerm = this.value.trim();
-            filterVocabulary();
+        
+        .vocab-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
-    });
-    
-    console.log('搜索功能初始化完成');
+        
+        .word-info {
+            flex: 1;
+        }
+        
+        .word-main {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 4px;
+        }
+        
+        .word-main h3 {
+            margin: 0;
+            font-size: 1.2rem;
+        }
+        
+        .phonetic {
+            color: #666;
+            font-style: italic;
+        }
+        
+        .word-details {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .part-of-speech {
+            padding: 2px 6px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            color: #555;
+        }
+        
+        .meaning {
+            color: #333;
+        }
+        
+        .word-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+        
+        .status-badge.notLearned {
+            background: #ffd8d8;
+            color: #c62828;
+        }
+        
+        .status-badge.learning {
+            background: #fff0c2;
+            color: #f57c00;
+        }
+        
+        .status-badge.mastered {
+            background: #d6ffdd;
+            color: #2e7d32;
+        }
+        
+        .word-actions {
+            display: flex;
+            gap: 6px;
+        }
+        
+        .word-actions button {
+            background: none;
+            border: none;
+            border-radius: 4px;
+            padding: 6px;
+            cursor: pointer;
+            color: #555;
+            transition: all 0.2s;
+        }
+        
+        .word-actions button:hover {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .edit-btn:hover {
+            color: #2196F3;
+        }
+        
+        .delete-btn:hover {
+            color: #F44336;
+        }
+        
+        .add-to-flashcard-btn:hover {
+            color: #4CAF50;
+        }
+        
+        .view-examples-btn {
+            background: none;
+            border: none;
+            padding: 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            color: #555;
+        }
+        
+        .view-examples-btn:hover {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .empty-message {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+            font-style: italic;
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 20px;
+        }
+        
+        .page-btn {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .page-btn.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        
+        .page-btn:hover:not(.active) {
+            background: #f5f5f5;
+        }
+        
+        /* 通知樣式 */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 9999;
+            font-size: 14px;
+            transition: opacity 0.3s ease;
+            opacity: 0;
+            display: none;
+        }
+        
+        .notification.info {
+            background-color: #e3f2fd;
+            color: #0d47a1;
+            border-left: 4px solid #2196F3;
+        }
+        
+        .notification.success {
+            background-color: #e8f5e9;
+            color: #1b5e20;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .notification.error {
+            background-color: #ffebee;
+            color: #b71c1c;
+            border-left: 4px solid #F44336;
+        }
+        
+        .notification.warning {
+            background-color: #fff8e1;
+            color: #ff6f00;
+            border-left: 4px solid #FFC107;
+        }
+    `;
+    document.head.appendChild(styleElement);
 } 

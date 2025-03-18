@@ -8,24 +8,53 @@ let cards = [];
 let autoPlayTimer = null;
 let isAutoPlaying = false;
 
-document.addEventListener('DOMContentLoaded', () => {
-    initFlashcards();
+document.addEventListener('DOMContentLoaded', async () => {
+    // 檢查頁面是否為記憶卡頁面
+    const flashcardsPage = document.getElementById('flashcards');
+    if (flashcardsPage && flashcardsPage.classList.contains('active')) {
+        // 如果當前頁面是記憶卡頁面，直接初始化
+        await initFlashcards();
+    } else {
+        // 否則，監聽頁面切換事件
+        const navLinks = document.querySelectorAll('nav a');
+        navLinks.forEach(link => {
+            link.addEventListener('click', async function(e) {
+                if (this.getAttribute('data-page') === 'flashcards') {
+                    console.log('切換到記憶卡頁面，初始化記憶卡功能');
+                    // 延遲一點初始化，確保頁面已經切換
+                    setTimeout(async () => {
+                        await initFlashcards();
+                    }, 100);
+                }
+            });
+        });
+    }
 });
 
 /**
  * 初始化記憶卡功能
  */
-function initFlashcards() {
+async function initFlashcards() {
     // 確保在記憶卡頁面才初始化
     if (!document.getElementById('flashcards')) {
         return;
     }
     
+    // 確保資料庫已初始化
+    try {
+        if (!window.db) {
+            console.log('資料庫未初始化，嘗試初始化...');
+            await initDatabase();
+        }
+    } catch (error) {
+        console.error('初始化資料庫失敗:', error);
+    }
+    
     // 初始化詞彙表下拉選單
-    initDeckSelector();
+    await initDeckSelector();
     
     // 載入單字數據
-    loadCardData();
+    await loadCardData();
     
     // 記憶卡點擊事件 - 翻轉
     const flashcard = document.querySelector('.flashcard');
@@ -62,9 +91,9 @@ function initFlashcards() {
     // 詞彙選擇器
     const deckSelector = document.getElementById('deckSelector');
     if (deckSelector) {
-        deckSelector.addEventListener('change', () => {
+        deckSelector.addEventListener('change', async () => {
             const selectedDeck = deckSelector.value;
-            loadCardData(selectedDeck);
+            await loadCardData(selectedDeck);
         });
     }
     
@@ -85,7 +114,7 @@ function initFlashcards() {
 /**
  * 初始化詞彙表下拉選單
  */
-function initDeckSelector() {
+async function initDeckSelector() {
     const deckSelector = document.getElementById('deckSelector');
     if (!deckSelector) {
         console.error('找不到詞彙表下拉選單');
@@ -93,8 +122,8 @@ function initDeckSelector() {
     }
     
     // 清空現有選項，保留預設選項
-    while (deckSelector.options.length > 1) {
-        deckSelector.remove(1);
+    while (deckSelector.options.length > 0) {
+        deckSelector.remove(0);
     }
     
     // 添加預設選項
@@ -106,22 +135,34 @@ function initDeckSelector() {
     ];
     
     defaultOptions.forEach(option => {
-        if (deckSelector.querySelector(`option[value="${option.id}"]`)) return;
-        
         const optionElem = document.createElement('option');
         optionElem.value = option.id;
         optionElem.textContent = option.name;
         deckSelector.appendChild(optionElem);
     });
     
-    // 添加自定義詞彙表
-    if (window.appData && window.appData.customLists && window.appData.customLists.length > 0) {
-        window.appData.customLists.forEach(list => {
+    try {
+        // 從資料庫獲取詞彙組
+        const wordLists = await window.db.getAllWordLists();
+        console.log('從資料庫載入詞彙組:', wordLists.length);
+        
+        if (wordLists && wordLists.length > 0) {
+            // 添加分隔線
+            const separatorOption = document.createElement('option');
+            separatorOption.disabled = true;
+            separatorOption.textContent = '──────────';
+            deckSelector.appendChild(separatorOption);
+            
+            // 添加自定義詞彙組
+            wordLists.forEach(list => {
             const optionElem = document.createElement('option');
             optionElem.value = list.id;
             optionElem.textContent = list.name;
             deckSelector.appendChild(optionElem);
         });
+        }
+    } catch (error) {
+        console.error('載入詞彙組失敗:', error);
     }
 }
 
@@ -129,39 +170,29 @@ function initDeckSelector() {
  * 載入記憶卡數據
  * @param {string} deck - 詞彙組名稱，預設為'all'
  */
-function loadCardData(deck = 'all') {
+async function loadCardData(deck = 'all') {
     console.log(`載入記憶卡數據，選擇的詞彙組: ${deck}`);
     
-    // 檢查全局數據是否可用
-    if (!window.appData || !window.appData.vocabulary) {
-        console.error('無法載入單字數據');
-        return;
-    }
-    
-    console.log(`全局詞彙數量: ${window.appData.vocabulary.length}`);
-    
-    // 根據選擇的詞彙組過濾單字
-    cards = window.appData.vocabulary.filter(word => {
-        if (deck === 'all') return true;
-        if (deck === 'notLearned' && (word.status === 'new' || word.status === 'notLearned')) return true;
-        if (deck === 'learning' && word.status === 'learning') return true;
-        if (deck === 'mastered' && word.status === 'mastered') return true;
+    try {
+        let words = [];
         
-        // 檢查自定義詞彙表
-        if (window.appData.customLists && window.appData.customLists.length > 0) {
-            const customList = window.appData.customLists.find(list => list.id === deck);
-            if (customList && word.lists && Array.isArray(word.lists) && word.lists.includes(deck)) {
-                return true;
-            }
+        if (deck === 'all') {
+            words = await window.db.getAllWords();
+        } else if (deck === 'notLearned') {
+            words = await window.db.getWordsByStatus('notLearned');
+        } else if (deck === 'learning') {
+            words = await window.db.getWordsByStatus('learning');
+        } else if (deck === 'mastered') {
+            words = await window.db.getWordsByStatus('mastered');
+        } else {
+            // 獲取自定義詞彙組中的單字
+            words = await window.db.getWordsInList(deck);
         }
         
-        return false;
-    });
-    
-    console.log(`過濾後的詞彙數量: ${cards.length}`);
+        console.log(`載入的單字數量: ${words.length}`);
     
     // 如果沒有單字，顯示提示
-    if (cards.length === 0) {
+        if (words.length === 0) {
         cards = [{
             id: 0,
             word: '沒有單字',
@@ -171,6 +202,8 @@ function loadCardData(deck = 'all') {
             definition: '請添加單字或選擇另一個詞彙組',
             examples: []
         }];
+        } else {
+            cards = words;
     }
     
     // 重置當前索引
@@ -181,6 +214,25 @@ function loadCardData(deck = 'all') {
     
     // 更新計數器
     updateCardCounter();
+    } catch (error) {
+        console.error('載入記憶卡數據失敗:', error);
+        
+        // 出錯時顯示錯誤提示卡片
+        cards = [{
+            id: 0,
+            word: '載入失敗',
+            phonetic: '',
+            meaning: '無法載入單字數據',
+            partOfSpeech: '',
+            definition: '請檢查資料庫連接或重新整理頁面',
+            examples: []
+        }];
+        
+        // 重置當前索引並顯示錯誤卡片
+        currentCardIndex = 0;
+        showCard(currentCardIndex);
+    updateCardCounter();
+    }
 }
 
 /**
