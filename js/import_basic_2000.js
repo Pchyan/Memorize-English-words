@@ -1732,7 +1732,7 @@ function importBasic2000Words() {
     { word: "soul", partOfSpeech: "名詞", meaning: "靈魂" },
     { word: "sour", partOfSpeech: "形容詞", meaning: "酸的" },
     { word: "soy-sauce", partOfSpeech: "名詞", meaning: "醬油" },
-    { word: "spaghetti", partOfSpeech: "名詞", meaning: "義大利麵"
+    { word: "spaghetti", partOfSpeech: "名詞", meaning: "義大利麵"},
     { word: "speaker", partOfSpeech: "名詞", meaning: "講者" },
     { word: "speech", partOfSpeech: "名詞", meaning: "演講" },
     { word: "speed", partOfSpeech: "名詞／動詞", meaning: "速度／加速" },

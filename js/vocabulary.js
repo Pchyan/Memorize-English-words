@@ -1438,7 +1438,7 @@ async function viewWordDetails(wordId) {
                     <i class="fas fa-volume-up"></i>
                 </button>
             </div>
-                    </div>
+            </div>
             
             <div class="details-section">
                     <h4>意思</h4>
