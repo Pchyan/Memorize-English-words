@@ -160,6 +160,62 @@ function initEventListeners() {
             }
         });
     });
+    
+    // 初始化 Gemini API 密鑰設置
+    initApiKeySettings();
+}
+
+/**
+ * 初始化 Gemini API 密鑰設置
+ */
+function initApiKeySettings() {
+    // 獲取 API 密鑰輸入框和按鈕
+    const apiKeyInput = document.getElementById('geminiApiKey');
+    const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
+    const toggleApiKeyBtn = document.getElementById('toggleApiKeyBtn');
+    
+    // 載入已保存的 API 密鑰
+    const savedApiKey = localStorage.getItem('geminiApiKey') || '';
+    
+    // 如果有已保存的 API 密鑰，顯示在輸入框中
+    if (apiKeyInput && savedApiKey) {
+        apiKeyInput.value = savedApiKey;
+    }
+    
+    // 儲存 API 密鑰按鈕點擊事件
+    if (saveApiKeyBtn) {
+        saveApiKeyBtn.addEventListener('click', () => {
+            if (apiKeyInput) {
+                const apiKey = apiKeyInput.value.trim();
+                
+                if (apiKey) {
+                    // 將 API 密鑰保存到 localStorage
+                    localStorage.setItem('geminiApiKey', apiKey);
+                    
+                    // 顯示成功訊息
+                    alert('Google Gemini API 密鑰已成功儲存！');
+                } else {
+                    // 顯示錯誤訊息
+                    alert('請輸入有效的 API 密鑰');
+                }
+            }
+        });
+    }
+    
+    // 切換 API 密鑰顯示/隱藏按鈕點擊事件
+    if (toggleApiKeyBtn && apiKeyInput) {
+        toggleApiKeyBtn.addEventListener('click', () => {
+            // 切換輸入框類型
+            const inputType = apiKeyInput.type;
+            apiKeyInput.type = inputType === 'password' ? 'text' : 'password';
+            
+            // 切換圖標
+            const icon = toggleApiKeyBtn.querySelector('i');
+            if (icon) {
+                icon.className = inputType === 'password' ? 'fas fa-eye-slash' : 'fas fa-eye';
+            }
+        });
+    }
 }
 
 /**

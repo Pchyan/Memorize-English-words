@@ -9,14 +9,53 @@ hnb16441@bcooq.com
 AIzaSyBJTy0EoemY0-zfUvpUNl3vOQleggT4l5Q
 
 
-1.移除現有單字，改以SQLite資料庫方式儲存使用者建立的單字
-2."詞彙管理"中，使用者可以自行建立字彙組，分別儲存在資料庫
-3.將 https://www.soeasyedu.com.tw/blog/learning-tips/english-vocabularies 此網頁的單字2005字全數加入"詞彙管理"成為一個獨立的字彙組(資料庫)
-4."記憶卡"功能的下拉選單與"詞彙管理"中的字彙組同步
-
 
 問題:
 
 "記憶卡"頁面下方的"建立聯想"、"查看上下文"、"同義/反義詞" 功能點選沒有反應，不會出現相對應的頁面
 
-"詞彙管理"的單字，點擊進去的內容與外面不同字。
+
+
+
+============================================================================================
+用js寫一個程式可以從劍橋詞典(https://dictionary.cambridge.org/zht/ )取得指定單字的美式音標
+============================================================================================
+
+async function getCambridgePronunciation(word) {
+  try {
+    const url = `https://dictionary.cambridge.org/zht/${word}`;
+    const response = await fetch(url);
+    const html = await response.text();
+
+    // 使用正規表達式提取美式音標。
+    // 這裡的正規表達式更精確，考慮了不同的音標顯示方式。
+    const pronunciationRegex = /<div class="phonetics-us\.pron"\>(.*?)<\/div>/s;
+    const match = pronunciationRegex.exec(html);
+
+    if (match && match[1]) {
+      // 清理音標，移除多餘的空格和換行符
+      let pronunciation = match[1].trim();
+      pronunciation = pronunciation.replace(/\n/g, ''); // 移除換行符
+      return pronunciation;
+    } else {
+      return null; // 如果沒有找到音標，則返回 null
+    }
+  } catch (error) {
+    console.error("取得音標時發生錯誤:", error);
+    return null;
+  }
+}
+
+// 範例用法
+const word = "hello";
+getCambridgePronunciation(word)
+  .then(pronunciation => {
+    if (pronunciation) {
+      console.log(`${word} 的美式音標是: ${pronunciation}`);
+    } else {
+      console.log(`${word} 在劍橋詞典上沒有找到美式音標`);
+    }
+  });
+
+============================================================================================
+

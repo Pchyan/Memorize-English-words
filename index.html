@@ -273,7 +273,6 @@
                     
                     <div class="main-content">
                         <div class="toolbar">
-                            <button id="addWordBtn" class="btn primary"><i class="fas fa-plus"></i> 新增單字</button>
                             <div class="search-box">
                                 <input type="text" id="searchInput" placeholder="搜索單字、意思或例句...">
                                 <button id="searchBtn"><i class="fas fa-search"></i></button>
@@ -698,57 +697,32 @@
     <!-- 模態框遮罩層 -->
     <div id="modalOverlay"></div>
 
-    <!-- 腳本引用 -->
+    <!-- JavaScript 文件 -->
     <script src="js/database.js"></script>
     <script src="js/app.js"></script>
-    <script src="js/data.js"></script>
     <script src="js/vocabulary.js"></script>
     <script src="js/flashcards.js"></script>
     <script src="js/practice.js"></script>
     <script src="js/progress.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="js/import_basic_2005.js"></script>
+
+    <!-- 導入語音合成功能 -->
     <script>
-        // API 密鑰管理
-        document.addEventListener('DOMContentLoaded', function() {
-            // 初始化 API 密鑰
-            const savedApiKey = localStorage.getItem('geminiApiKey') || '';
-            const apiKeyInput = document.getElementById('geminiApiKey');
-            if (apiKeyInput && savedApiKey) {
-                apiKeyInput.value = savedApiKey;
-            }
-            
-            // 保存 API 密鑰
-            const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
-            if (saveApiKeyBtn) {
-                saveApiKeyBtn.addEventListener('click', function() {
-                    const apiKey = apiKeyInput.value.trim();
-                    if (apiKey) {
-                        localStorage.setItem('geminiApiKey', apiKey);
-                        showNotification('API 密鑰已保存', 'success');
-                    } else {
-                        showNotification('請輸入有效的 API 密鑰', 'error');
-                    }
-                });
-            }
-            
-            // 切換 API 密鑰顯示/隱藏
-            const toggleApiKeyBtn = document.getElementById('toggleApiKeyBtn');
-            if (toggleApiKeyBtn) {
-                toggleApiKeyBtn.addEventListener('click', function() {
-                    if (apiKeyInput.type === 'password') {
-                        apiKeyInput.type = 'text';
-                        toggleApiKeyBtn.innerHTML = '<i class="fas fa-eye-slash"></i>';
-                    } else {
-                        apiKeyInput.type = 'password';
-                        toggleApiKeyBtn.innerHTML = '<i class="fas fa-eye"></i>';
-                    }
-                });
-            }
-        });
+        // 初始化語音合成
+        const synth = window.speechSynthesis;
         
-        // 獲取 Gemini API 密鑰
-        function getGeminiApiKey() {
-            return localStorage.getItem('geminiApiKey') || '';
+        // 發音功能
+        function pronounceWord(word) {
+            if (!synth) {
+                alert('您的瀏覽器不支援語音合成功能');
+                return;
+            }
+            
+            const utterance = new SpeechSynthesisUtterance(word);
+            utterance.lang = 'en-US';
+            utterance.rate = 0.9;
+            
+            synth.speak(utterance);
         }
     </script>
 
