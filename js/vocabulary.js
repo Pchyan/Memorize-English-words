@@ -316,11 +316,40 @@ function createListItem(list) {
     item.appendChild(name);
     item.appendChild(count);
     
-    // 如果不是預設列表，添加編輯、清空和刪除按鈕
-    if (!['all', 'notLearned', 'learning', 'mastered'].includes(list.id)) {
+    // 添加操作按鈕
         const actions = document.createElement('div');
         actions.className = 'list-actions';
         
+    // 為所有詞彙表添加清空按鈕，但確認訊息和處理方式不同
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'clear-list-btn';
+    clearBtn.innerHTML = '<i class="fas fa-eraser"></i>';
+    clearBtn.title = '清空詞彙表';
+    clearBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        let confirmMessage = '';
+        
+        // 根據不同列表類型顯示不同的確認訊息
+        if (list.id === 'all') {
+            confirmMessage = '確定要清空所有單字嗎？此操作將刪除系統中的所有單字，且不可復原！';
+        } else if (list.id === 'notLearned') {
+            confirmMessage = '確定要清空所有"未學習"的單字嗎？此操作不可復原！';
+        } else if (list.id === 'learning') {
+            confirmMessage = '確定要清空所有"學習中"的單字嗎？此操作不可復原！';
+        } else if (list.id === 'mastered') {
+            confirmMessage = '確定要清空所有"已掌握"的單字嗎？此操作不可復原！';
+        } else {
+            confirmMessage = `確定要清空詞彙組「${list.name}」中的所有單字嗎？此操作不可復原。`;
+        }
+        
+        if (confirm(confirmMessage)) {
+            clearVocabList(list.id);
+        }
+    });
+    actions.appendChild(clearBtn);
+    
+    // 如果不是預設列表，添加編輯和刪除按鈕
+    if (!['all', 'notLearned', 'learning', 'mastered'].includes(list.id)) {
         const editBtn = document.createElement('button');
         editBtn.className = 'edit-list-btn';
         editBtn.innerHTML = '<i class="fas fa-edit"></i>';
@@ -333,17 +362,6 @@ function createListItem(list) {
             }
         });
         
-        const clearBtn = document.createElement('button');
-        clearBtn.className = 'clear-list-btn';
-        clearBtn.innerHTML = '<i class="fas fa-eraser"></i>';
-        clearBtn.title = '清空詞彙表';
-        clearBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (confirm(`確定要清空詞彙組「${list.name}」中的所有單字嗎？此操作不可復原。`)) {
-                clearVocabList(list.id);
-            }
-        });
-        
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'delete-list-btn';
         deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
@@ -351,15 +369,15 @@ function createListItem(list) {
         deleteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             if (confirm(`確定要刪除詞彙組「${list.name}」嗎？`)) {
-                deleteVocabList(list.id);
+            deleteVocabList(list.id);
             }
         });
         
         actions.appendChild(editBtn);
-        actions.appendChild(clearBtn);
         actions.appendChild(deleteBtn);
-        item.appendChild(actions);
     }
+    
+    item.appendChild(actions);
     
     // 添加點擊事件
     item.addEventListener('click', () => {
@@ -2764,8 +2782,8 @@ function addVocabularyStyles() {
     /* 詞彙列表樣式 */
     .main-content {
         flex: 1;
-        display: flex;
-        flex-direction: column;
+            display: flex;
+            flex-direction: column;
         overflow: hidden;
     }
     
@@ -2807,83 +2825,86 @@ function addVocabularyStyles() {
         overflow-y: auto;
     }
     
-    .word-item {
-        display: flex;
+    /* 單字項目樣式 */
+        .vocab-item {
+            display: flex;
         padding: 15px;
         border-bottom: 1px solid #e1e4e8;
-        transition: all 0.2s;
-    }
-    
-    .word-item:hover {
-        background: #f9fafb;
-    }
-    
-    .word-item:last-child {
-        border-bottom: none;
-    }
-    
-    .word-info {
-        flex: 1;
-    }
-    
-    .word-main {
-        display: flex;
-        align-items: baseline;
+            align-items: center;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 12px;
+            transition: all 0.3s ease;
+        justify-content: space-between;
+        }
+        
+        .vocab-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        .word-info {
+            flex: 1;
+        }
+        
+        .word-main {
+            display: flex;
+            align-items: center;
         margin-bottom: 5px;
-    }
-    
-    .word-text {
-        font-weight: 700;
-        font-size: 1.1em;
-        color: #2d3748;
+        }
+        
+        .word-main h3 {
+            margin: 0;
+            font-size: 1.2rem;
         margin-right: 10px;
-    }
-    
-    .phonetic {
+        }
+        
+        .phonetic {
         font-size: 0.85em;
         color: #718096;
-    }
-    
-    .pronunciation-btn {
-        background: none;
-        border: none;
+            font-style: italic;
+        margin-right: 10px;
+        }
+        
+        .pronunciation-btn {
+            background: none;
+            border: none;
         color: #4299e1;
-        cursor: pointer;
+            cursor: pointer;
         padding: 3px 6px;
         border-radius: 3px;
-        margin-left: 5px;
-    }
-    
-    .pronunciation-btn:hover {
+        }
+        
+        .pronunciation-btn:hover {
         background: #ebf8ff;
-    }
-    
-    .word-details {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: baseline;
-    }
-    
-    .part-of-speech {
+        }
+        
+        .word-details {
+            display: flex;
+            align-items: center;
+        }
+        
+        .part-of-speech {
         font-size: 0.75em;
         color: #718096;
-        padding: 2px 6px;
+            padding: 2px 6px;
         background: #f7fafc;
         border-radius: 3px;
         margin-right: 8px;
-    }
-    
-    .meaning {
+        }
+        
+        .meaning {
         color: #4a5568;
-    }
-    
-    .word-status {
-        display: flex;
-        align-items: center;
-        margin-left: 20px;
-    }
-    
-    .status-badge {
+        }
+        
+        .word-status {
+            display: flex;
+            align-items: center;
+        margin-right: 20px;
+        }
+        
+        .status-badge {
         padding: 3px 8px;
         border-radius: 3px;
         font-size: 0.75em;
@@ -2893,14 +2914,14 @@ function addVocabularyStyles() {
     .status-badge.new, .status-badge.notLearned {
         background: #fed7d7;
         color: #c53030;
-    }
-    
-    .status-badge.learning {
+        }
+        
+        .status-badge.learning {
         background: #feebc8;
         color: #c05621;
-    }
-    
-    .status-badge.mastered {
+        }
+        
+        .status-badge.mastered {
         background: #c6f6d5;
         color: #2f855a;
     }
@@ -2917,25 +2938,25 @@ function addVocabularyStyles() {
     
     .view-examples-btn:hover {
         background: #ebf8ff;
-    }
-    
-    .word-actions {
-        display: flex;
+        }
+        
+        .word-actions {
+            display: flex;
         align-items: center;
-    }
-    
-    .word-actions button {
-        background: none;
-        border: none;
+        }
+        
+        .word-actions button {
+            background: none;
+            border: none;
         color: #4299e1;
-        cursor: pointer;
+            cursor: pointer;
         padding: 8px;
         border-radius: 3px;
         margin-left: 5px;
-        transition: all 0.2s;
-    }
-    
-    .word-actions button:hover {
+            transition: all 0.2s;
+        }
+        
+        .word-actions button:hover {
         background: #ebf8ff;
     }
     
@@ -2947,16 +2968,28 @@ function addVocabularyStyles() {
         background: #fff5f5;
     }
     
-    .empty-message {
-        text-align: center;
-        padding: 40px;
-        color: #718096;
+    .word-actions .edit-btn:hover {
+        color: #2196F3;
     }
     
+    .word-actions .add-to-list-btn {
+        color: #4CAF50;
+    }
+    
+    .word-actions .add-to-list-btn:hover {
+        background: #f0fff4;
+        }
+        
+        .empty-message {
+            text-align: center;
+            padding: 40px;
+        color: #718096;
+        }
+        
     /* 分頁樣式 */
-    .pagination {
-        display: flex;
-        justify-content: center;
+        .pagination {
+            display: flex;
+            justify-content: center;
         padding: 20px;
         background: #f8fafc;
         border-top: 1px solid #e1e4e8;
@@ -2968,7 +3001,7 @@ function addVocabularyStyles() {
         padding: 8px 12px;
         margin: 0 5px;
         border-radius: 6px;
-        cursor: pointer;
+            cursor: pointer;
         transition: all 0.2s;
     }
     
@@ -2983,16 +3016,16 @@ function addVocabularyStyles() {
     }
     
     .pagination button:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-    
-    /* 通知樣式 */
-    .notification {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 12px 20px;
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* 通知樣式 */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
         border-radius: 6px;
         color: white;
         z-index: 1000;
@@ -3003,23 +3036,23 @@ function addVocabularyStyles() {
     
     .notification.show {
         transform: translateX(0);
-    }
-    
-    .notification.info {
+        }
+        
+        .notification.info {
         background: #4299e1;
-    }
-    
-    .notification.success {
+        }
+        
+        .notification.success {
         background: #48bb78;
-    }
-    
-    .notification.warning {
+        }
+        
+        .notification.warning {
         background: #ed8936;
     }
     
     .notification.error {
         background: #f56565;
-    }
+        }
     `;
     document.head.appendChild(styleElement);
 }
@@ -3543,43 +3576,77 @@ function addWordListSelectModalStyles() {
         }
     `;
     document.head.appendChild(styleElement);
-}
+} 
 
 /**
  * 清空詞彙組中的所有單字
- * @param {number} id - 詞彙組ID
+ * @param {number|string} id - 詞彙組ID或預設列表ID
  */
 async function clearVocabList(id) {
     try {
-        // 獲取詞彙表中的所有單字
-        const words = await window.db.getWordsInList(id);
-        console.log(`詞彙表 ${id} 中有 ${words.length} 個單字，準備清空`);
+        let words = [];
+        let listName = '';
+        
+        // 根據不同的列表類型獲取對應的單字
+        if (id === 'all') {
+            // 獲取所有單字
+            words = await window.db.getAllWords();
+            listName = '所有單字';
+        } else if (id === 'notLearned') {
+            // 獲取所有未學習單字
+            words = await window.db.getWordsByStatus('notLearned');
+            listName = '未學習';
+        } else if (id === 'learning') {
+            // 獲取所有學習中單字
+            words = await window.db.getWordsByStatus('learning');
+            listName = '學習中';
+        } else if (id === 'mastered') {
+            // 獲取所有已掌握單字
+            words = await window.db.getWordsByStatus('mastered');
+            listName = '已掌握';
+        } else {
+            // 獲取詞彙表中的所有單字
+            words = await window.db.getWordsInList(id);
+            
+            // 獲取詞彙表信息
+            const lists = await window.db.getAllWordLists();
+            const list = lists.find(l => l.id === id);
+            listName = list ? list.name : '詞彙表';
+        }
+        
+        console.log(`詞彙表「${listName}」中有 ${words.length} 個單字，準備清空`);
         
         if (words.length === 0) {
             showNotification('詞彙表已經是空的', 'info');
             return;
         }
         
-        // 獲取詞彙表信息
-        const lists = await window.db.getAllWordLists();
-        const list = lists.find(l => l.id === id);
-        const listName = list ? list.name : '詞彙表';
-        
         // 顯示進度通知
         showNotification(`正在清空詞彙表「${listName}」，請稍候...`, 'info');
         
-        // 從詞彙表中移除所有單字
-        for (const word of words) {
-            await window.db.removeWordFromList(word.id, id);
+        // 處理不同的清空操作
+        if (id === 'all') {
+            // 清空所有單字（從所有詞彙表中刪除所有單字）
+            for (const word of words) {
+                await window.db.deleteWord(word.id);
+            }
+        } else if (['notLearned', 'learning', 'mastered'].includes(id)) {
+            // 刪除特定狀態的單字
+            for (const word of words) {
+                await window.db.deleteWord(word.id);
+            }
+        } else {
+            // 從詞彙表中移除所有單字，但不刪除單字本身
+            for (const word of words) {
+                await window.db.removeWordFromList(word.id, id);
+            }
         }
         
         // 更新詞彙表計數
         await updateVocabListCounts();
         
-        // 如果當前選中的是被清空的詞彙表，重新載入詞彙
-        if (currentVocabList === id) {
-            await loadVocabularyData();
-        }
+        // 重新載入詞彙
+        await loadVocabularyData();
         
         showNotification(`詞彙表「${listName}」已清空`, 'success');
     } catch (error) {
