@@ -107,14 +107,12 @@ async function switchPage(pageId) {
                 console.error('找不到 initVocabularyManager 函數');
             }
         } else if (pageId === 'flashcards') {
-            console.log('初始化記憶卡頁面');
+            console.log('切換到記憶卡頁面');
             // 初始化記憶卡頁面
             if (typeof initFlashcards === 'function') {
                 try {
-                    // 延遲一點初始化，確保頁面已完全切換和渲染
-                    setTimeout(async () => {
-                        await initFlashcards();
-                    }, 100);
+                    // 直接調用，函數內部會檢查是否需要重新初始化
+                    await initFlashcards();
                 } catch (error) {
                     console.error('初始化記憶卡頁面失敗:', error);
                 }

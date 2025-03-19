@@ -7,6 +7,8 @@ let currentCardIndex = 0;
 let cards = [];
 let autoPlayTimer = null;
 let isAutoPlaying = false;
+let isFlashcardsInitialized = false; // 記錄記憶卡功能是否已初始化
+let initDeckSelectorLastRunTime = 0; // 記錄上次初始化詞彙表選擇器的時間
 
 document.addEventListener('DOMContentLoaded', async () => {
     // 檢查頁面是否為記憶卡頁面
@@ -20,11 +22,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         navLinks.forEach(link => {
             link.addEventListener('click', async function(e) {
                 if (this.getAttribute('data-page') === 'flashcards') {
-                    console.log('切換到記憶卡頁面，初始化記憶卡功能');
-                    // 延遲一點初始化，確保頁面已經切換
-                    setTimeout(async () => {
-                        await initFlashcards();
-                    }, 100);
+                    console.log('點擊切換到記憶卡頁面');
+                    // 不需要再延遲調用，函數內部會檢查是否需要重新初始化
                 }
             });
         });
@@ -40,7 +39,14 @@ async function initFlashcards() {
         return;
     }
     
-    console.log('初始化記憶卡功能...');
+    console.log('正在初始化記憶卡功能...');
+    
+    // 檢查是否已經初始化過，若是則只更新內容不重新初始化所有功能
+    if (isFlashcardsInitialized) {
+        console.log('記憶卡功能已初始化過，僅更新數據');
+        await loadCardData();
+        return;
+    }
     
     // 確保資料庫已初始化
     try {
@@ -121,30 +127,34 @@ async function initFlashcards() {
     
     // 學習工具按鈕
     initLearningTools();
-}
-
-/**
- * 翻轉記憶卡的事件處理函數
- * @param {Event} event - 點擊事件
- */
-function flipCard(event) {
-    console.log('記憶卡被點擊，準備翻轉');
-    const flashcard = event.currentTarget;
-    flashcard.classList.toggle('flipped');
-    console.log('記憶卡翻轉狀態已切換:', flashcard.classList.contains('flipped'));
+    
+    // 標記為已初始化
+    isFlashcardsInitialized = true;
+    console.log('記憶卡功能初始化完成');
 }
 
 /**
  * 初始化詞彙表下拉選單
  */
 async function initDeckSelector() {
+    const currentTime = Date.now();
+    // 如果距離上次初始化不到1秒，則跳過
+    if (currentTime - initDeckSelectorLastRunTime < 1000) {
+        console.log('詞彙表選擇器最近已初始化，跳過此次初始化');
+        return;
+    }
+    
+    initDeckSelectorLastRunTime = currentTime;
+    
     const deckSelector = document.getElementById('deckSelector');
     if (!deckSelector) {
         console.error('找不到詞彙表下拉選單');
         return;
     }
     
-    // 清空現有選項，保留預設選項
+    console.log('初始化詞彙表下拉選單');
+    
+    // 清空現有選項
     while (deckSelector.options.length > 0) {
         deckSelector.remove(0);
     }
@@ -176,13 +186,21 @@ async function initDeckSelector() {
             separatorOption.textContent = '──────────';
             deckSelector.appendChild(separatorOption);
             
-            // 添加自定義詞彙組
+            // 添加自定義詞彙組 (使用Set來確保不會添加重複ID的選項)
+            const addedIds = new Set();
+            
             wordLists.forEach(list => {
-            const optionElem = document.createElement('option');
-            optionElem.value = list.id;
-            optionElem.textContent = list.name;
-            deckSelector.appendChild(optionElem);
-        });
+                // 確保該ID未被添加過
+                if (!addedIds.has(list.id)) {
+                    const optionElem = document.createElement('option');
+                    optionElem.value = list.id;
+                    optionElem.textContent = list.name;
+                    deckSelector.appendChild(optionElem);
+                    
+                    // 記錄已添加的ID
+                    addedIds.add(list.id);
+                }
+            });
         }
     } catch (error) {
         console.error('載入詞彙組失敗:', error);
@@ -194,58 +212,91 @@ async function initDeckSelector() {
  * @param {string} deck - 詞彙組名稱，預設為'all'
  */
 async function loadCardData(deck = 'all') {
-    console.log(`載入記憶卡數據，選擇的詞彙組: ${deck}`);
+    console.log(`準備載入卡片數據，詞彙表: ${deck}`);
     
     try {
-        let words = [];
-        
+        // 根據詞彙表選擇載入資料
+        let wordData = [];
         if (deck === 'all') {
-            words = await window.db.getAllWords();
+            wordData = await window.db.getAllWords();
+            console.log(`從資料庫載入所有單字，數量: ${wordData.length}`);
         } else if (deck === 'notLearned') {
-            words = await window.db.getWordsByStatus('notLearned');
+            wordData = await window.db.getWordsByStatus('notLearned');
+            console.log(`從資料庫載入未學習單字，數量: ${wordData.length}`);
         } else if (deck === 'learning') {
-            words = await window.db.getWordsByStatus('learning');
+            wordData = await window.db.getWordsByStatus('learning');
+            console.log(`從資料庫載入學習中單字，數量: ${wordData.length}`);
         } else if (deck === 'mastered') {
-            words = await window.db.getWordsByStatus('mastered');
+            wordData = await window.db.getWordsByStatus('mastered');
+            console.log(`從資料庫載入已掌握單字，數量: ${wordData.length}`);
         } else {
-            // 獲取自定義詞彙組中的單字
-            words = await window.db.getWordsInList(deck);
+            // 如果是數字，則表示是特定詞彙表的ID
+            const listId = parseInt(deck);
+            if (!isNaN(listId)) {
+                wordData = await window.db.getWordsInList(listId);
+                console.log(`從資料庫載入詞彙表 ${listId} 的單字，數量: ${wordData.length}`);
+            }
         }
         
-        console.log(`載入的單字數量: ${words.length}`);
-    
-        // 如果沒有單字，顯示提示
-        if (words.length === 0) {
-            cards = [{
-                id: 0,
-                word: '沒有單字',
-                phonetic: '',
-                meaning: '這個詞彙組中沒有單字',
-                partOfSpeech: '',
-                definition: '請添加單字或選擇另一個詞彙組',
-                examples: []
-            }];
-            console.log('沒有找到單字，顯示提示卡片');
-        } else {
-            cards = words;
-            console.log('成功載入單字數據，卡片數量:', cards.length);
+        // 檢查單字是否包含 contexts 欄位
+        let contextsCount = 0;
+        for (const word of wordData) {
+            const hasContexts = !!(word.contexts && Array.isArray(word.contexts) && word.contexts.length > 0);
+            
+            console.log(`單字 "${word.word}" (ID: ${word.id}) 包含 contexts: ${hasContexts ? '是' : '否'}${hasContexts ? ', 數量: ' + word.contexts.length : ', 無常見用法'}`);
+            
+            if (hasContexts) {
+                contextsCount++;
+                console.log(`單字 "${word.word}" 的 contexts:`, word.contexts);
+            } else {
+                console.log(`單字 "${word.word}" 完整對象:`, word);
+            }
         }
-    
-        // 重置當前索引
-        currentCardIndex = 0;
-        console.log('重置當前索引為 0');
         
-        // 顯示第一張卡片
-        showCard(currentCardIndex);
+        console.log(`共有 ${contextsCount}/${wordData.length} 個單字包含 contexts 欄位 (${Math.round(contextsCount / wordData.length * 100 || 0)}%)`);
         
-        // 更新計數器
-        updateCardCounter();
-        
-        // 確保導航按鈕正確綁定
-        ensureNavigationButtons();
-        
+        if (wordData.length > 0) {
+            cards = wordData;
+            console.log(`成功載入單字數據，卡片數量: ${cards.length}`);
+            
+            // 重置當前索引
+            currentCardIndex = 0;
+            console.log(`重置當前索引為 ${currentCardIndex}`);
+            
+            // 顯示第一張卡片
+            showCard(currentCardIndex);
+            
+            // 更新計數器
+            updateCardCounter();
+            
+            // 確保導航按鈕正確綁定
+            ensureNavigationButtons();
+        } else {
+            console.warn('沒有找到單字，顯示提示信息');
+            
+            const flashcardContainer = document.querySelector('.flashcard-container');
+            if (flashcardContainer) {
+                // 顯示無資料提示
+                flashcardContainer.innerHTML = `
+                    <div class="no-cards-notice">
+                        <h3>沒有可顯示的單字</h3>
+                        <p>目前詞彙表中沒有符合當前篩選條件的單字。</p>
+                        <p>請前往<a href="#" class="nav-vocabulary">詞彙管理</a>頁面添加單字，或者使用左側詞彙表選擇器選擇其他詞彙表。</p>
+                    </div>
+                `;
+                
+                // 為詞彙管理連結添加事件監聽器
+                const vocabLink = flashcardContainer.querySelector('.nav-vocabulary');
+                if (vocabLink) {
+                    vocabLink.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        document.querySelector('nav a[data-page="vocabulary"]').click();
+                    });
+                }
+            }
+        }
     } catch (error) {
-        console.error('載入記憶卡數據失敗:', error);
+        console.error('載入卡片數據時出錯:', error);
         
         // 出錯時顯示錯誤提示卡片
         cards = [{
@@ -309,6 +360,18 @@ function showCard(index) {
     if (!card || !card.word) {
         console.error('卡片數據不完整');
         return;
+    }
+    
+    // 檢查 contexts 欄位
+    if (card.contexts) {
+        console.log(`卡片 "${card.word}" 包含 ${card.contexts.length} 個常見用法`);
+        if (card.contexts.length > 0) {
+            console.log(`常見用法示例:`, card.contexts[0]);
+        }
+    } else {
+        console.log(`卡片 "${card.word}" 不包含常見用法`);
+        // 初始化一個空的 contexts 數組以防止錯誤
+        card.contexts = [];
     }
     
     try {
@@ -402,6 +465,18 @@ function showCard(index) {
         const associationPanel = document.getElementById('associationPanel');
         if (associationPanel && associationPanel.classList.contains('active')) {
             updateAssociationPanel();
+        }
+        
+        // 檢查上下文面板是否處於活動狀態，如果是則更新上下文面板內容
+        const contextPanel = document.getElementById('contextPanel');
+        if (contextPanel && contextPanel.classList.contains('active')) {
+            updateContextPanel();
+        }
+        
+        // 檢查同義詞面板是否處於活動狀態，如果是則更新同義詞面板內容
+        const synonymsPanel = document.getElementById('synonymsPanel');
+        if (synonymsPanel && synonymsPanel.classList.contains('active')) {
+            updateSynonymsPanel();
         }
         
         console.log(`卡片索引 ${index} 顯示完成`);
@@ -658,9 +733,9 @@ function initLearningTools() {
     // 保存聯想按鈕
     const saveBtn = document.querySelector('.save-btn');
     if (saveBtn) {
-        saveBtn.addEventListener('click', (e) => {
+        saveBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
-            saveAssociation();
+            await saveAssociation();
         });
     }
     
@@ -790,14 +865,38 @@ function updateAssociationPanel() {
         }
     }
     
-    // 顯示加載中提示
+    // 獲取建議區域容器
     const suggestionsContainer = document.querySelector('.suggestions');
-    if (suggestionsContainer) {
-        suggestionsContainer.innerHTML = '<div class="loading-suggestion">正在生成聯想建議...</div>';
+    if (!suggestionsContainer) {
+        console.error('找不到建議聯想容器');
+        return;
     }
     
-    // 更新建議聯想按鈕 - 使用異步函數
-    updateSuggestionButtons(card);
+    // 檢查是否已有儲存的聯想
+    if (card.associations && card.associations.trim()) {
+        console.log('單字已有儲存的聯想，顯示重新生成按鈕');
+        suggestionsContainer.innerHTML = `
+            <div class="regenerate-container">
+                <p>此單字已有儲存的聯想</p>
+                <button class="ai-context-btn regenerate-btn"><i class="fas fa-sync-alt"></i> 重新生成聯想</button>
+            </div>
+        `;
+        
+        // 為重新生成按鈕添加事件監聽器
+        const regenerateBtn = suggestionsContainer.querySelector('.regenerate-btn');
+        if (regenerateBtn) {
+            regenerateBtn.addEventListener('click', () => {
+                console.log('點擊重新生成聯想按鈕');
+                updateSuggestionButtons(card, true); // 傳入 true 表示強制重新生成
+            });
+        }
+    } else {
+        // 如果沒有儲存的聯想，則顯示加載中提示並生成建議
+        suggestionsContainer.innerHTML = '<div class="loading-suggestion">正在生成聯想建議...</div>';
+        
+        // 更新建議聯想按鈕 - 使用異步函數
+        updateSuggestionButtons(card);
+    }
 }
 
 /**
@@ -819,6 +918,7 @@ function updateContextPanel() {
         
         // 添加上下文用法
         if (card.contexts && card.contexts.length > 0) {
+            // 首先顯示已存在的常見用法
             card.contexts.forEach(context => {
                 const contextItem = document.createElement('div');
                 contextItem.className = 'context-item';
@@ -834,6 +934,21 @@ function updateContextPanel() {
                 contextItem.appendChild(example);
                 contextSection.appendChild(contextItem);
             });
+            
+            // 添加重新產生按鈕
+            const regenerateContainer = document.createElement('div');
+            regenerateContainer.className = 'regenerate-container';
+            
+            const regenerateBtn = document.createElement('button');
+            regenerateBtn.className = 'regenerate-btn';
+            regenerateBtn.innerHTML = '<i class="fas fa-sync-alt"></i> 重新產生常見用法';
+            regenerateBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await generateAIContexts(card);
+            });
+            
+            regenerateContainer.appendChild(regenerateBtn);
+            contextSection.appendChild(regenerateContainer);
         } else {
             const noContext = document.createElement('p');
             noContext.textContent = '沒有相關上下文用法';
@@ -978,7 +1093,7 @@ function updateSynonymsPanel() {
 /**
  * 保存聯想內容
  */
-function saveAssociation() {
+async function saveAssociation() {
     console.log('保存聯想內容');
     
     if (cards.length === 0 || currentCardIndex < 0 || currentCardIndex >= cards.length) {
@@ -1006,47 +1121,78 @@ function saveAssociation() {
     // 更新當前卡片數據
     card.associations = assocInput.value;
     
-    // 保存到全局數據
-    if (window.appData && window.appData.vocabulary) {
-        const wordId = card.id;
-        const vocabIndex = window.appData.vocabulary.findIndex(item => item.id === wordId);
-        
-        if (vocabIndex !== -1) {
-            console.log(`更新全局數據中 ID 為 ${wordId} 的單字聯想`);
-            window.appData.vocabulary[vocabIndex].associations = assocInput.value;
-            
-            // 儲存到本地儲存
+    try {
+        // 1. 保存到資料庫
+        if (window.db && typeof window.db.updateWord === 'function') {
+            // 首先獲取完整的單字數據，避免覆蓋其他屬性
+            let completeWordData;
             try {
+                completeWordData = await window.db.getWordById(card.id);
+                console.log('從資料庫獲取完整單字數據:', completeWordData);
+            } catch (getWordError) {
+                console.warn('無法從資料庫獲取完整單字數據，將使用當前卡片數據:', getWordError);
+                completeWordData = card;
+            }
+            
+            // 準備更新對象 - 只更新 associations 欄位，保留其他欄位不變
+            const updatedWord = {
+                ...completeWordData,  // 保留所有現有屬性
+                id: card.id,
+                associations: assocInput.value,
+                updatedAt: new Date().toISOString()
+            };
+            
+            // 確保保留基本屬性
+            updatedWord.word = updatedWord.word || card.word;
+            updatedWord.meaning = updatedWord.meaning || card.meaning;
+            updatedWord.partOfSpeech = updatedWord.partOfSpeech || card.partOfSpeech;
+            
+            console.log('正在更新資料庫中的聯想數據:', updatedWord);
+            await window.db.updateWord(updatedWord);
+            console.log('資料庫中的聯想數據已更新');
+        } else {
+            console.warn('資料庫功能不可用，無法更新資料庫');
+        }
+        
+        // 2. 保存到全局數據 (兼容舊的儲存方式)
+        if (window.appData && window.appData.vocabulary) {
+            const wordId = card.id;
+            const vocabIndex = window.appData.vocabulary.findIndex(item => item.id === wordId);
+            
+            if (vocabIndex !== -1) {
+                console.log(`更新全局數據中 ID 為 ${wordId} 的單字聯想`);
+                window.appData.vocabulary[vocabIndex].associations = assocInput.value;
+                
+                // 儲存到本地儲存
                 localStorage.setItem('vocabMasterData', JSON.stringify(window.appData));
-                console.log('數據已直接保存到本地儲存');
-                
-                // 顯示保存成功訊息
-                const saveBtn = document.querySelector('.save-btn');
-                if (saveBtn) {
-                    const originalText = saveBtn.textContent;
-                    saveBtn.textContent = '已保存 ✓';
-                    saveBtn.classList.add('saved');
-                    
-                    // 3秒後恢復原始文字
-                    setTimeout(() => {
-                        saveBtn.textContent = originalText;
-                        saveBtn.classList.remove('saved');
-                    }, 3000);
-                }
-                
-                // 顯示通知
-                showNotification('聯想已保存', 'success');
-            } catch (error) {
-                console.error('保存到本地儲存時出錯:', error);
-                alert('保存失敗：' + error.message);
+                console.log('數據已保存到本地儲存');
+            } else {
+                console.warn(`在全局數據中找不到 ID 為 ${wordId} 的單字，跳過本地儲存更新`);
             }
         } else {
-            console.error(`找不到 ID 為 ${wordId} 的單字`);
-            alert('保存失敗：找不到對應的單字');
+            console.warn('全局數據不存在，跳過本地儲存更新');
         }
-    } else {
-        console.error('全局數據不存在');
-        alert('保存失敗：應用數據未初始化');
+        
+        // 3. 顯示成功訊息
+        const saveBtn = document.querySelector('.save-btn');
+        if (saveBtn) {
+            const originalText = saveBtn.textContent;
+            saveBtn.textContent = '已保存 ✓';
+            saveBtn.classList.add('saved');
+            
+            // 3秒後恢復原始文字
+            setTimeout(() => {
+                saveBtn.textContent = originalText;
+                saveBtn.classList.remove('saved');
+            }, 3000);
+        }
+        
+        // 顯示通知
+        showNotification('聯想已保存', 'success');
+        
+    } catch (error) {
+        console.error('保存聯想時出錯:', error);
+        alert('保存失敗：' + error.message);
     }
 }
 
@@ -1283,9 +1429,10 @@ function translatePartOfSpeech(partOfSpeech) {
 /**
  * 更新建議聯想按鈕
  * @param {Object} card - 當前卡片
+ * @param {boolean} forceRegenerate - 是否強制重新生成聯想，即使單字已有儲存的聯想
  */
-async function updateSuggestionButtons(card) {
-    console.log('更新建議聯想按鈕，單字:', card.word);
+async function updateSuggestionButtons(card, forceRegenerate = false) {
+    console.log('更新建議聯想按鈕，單字:', card.word, '強制重新生成:', forceRegenerate);
     
     const suggestionsContainer = document.querySelector('.suggestions');
     if (!suggestionsContainer) {
@@ -1293,11 +1440,15 @@ async function updateSuggestionButtons(card) {
         return;
     }
     
-    // 清空現有建議
-    suggestionsContainer.innerHTML = '';
+    // 如果單字已有聯想且未設置強制重新生成，則提前返回
+    if (card.associations && card.associations.trim() && !forceRegenerate) {
+        console.log('單字已有儲存的聯想且未要求重新生成，提前返回');
+        return;
+    }
     
-    // 如果沒有卡片數據，顯示提示信息
+    // 如果沒有卡片數據或是空白單字，顯示相應提示
     if (!card || !card.word || card.word === '沒有單字') {
+        suggestionsContainer.innerHTML = '';
         const noSuggestion = document.createElement('p');
         noSuggestion.textContent = '請先添加單字';
         noSuggestion.className = 'no-suggestion';
@@ -1306,10 +1457,7 @@ async function updateSuggestionButtons(card) {
     }
     
     // 顯示加載中提示
-    const loadingElement = document.createElement('p');
-    loadingElement.textContent = '正在生成聯想建議...';
-    loadingElement.className = 'loading-suggestion';
-    suggestionsContainer.appendChild(loadingElement);
+    suggestionsContainer.innerHTML = '<div class="loading-suggestion">正在生成聯想建議...</div>';
     
     try {
         // 生成建議聯想
@@ -1321,15 +1469,15 @@ async function updateSuggestionButtons(card) {
         
         // 為每個建議創建按鈕
         if (suggestions && suggestions.length > 0) {
-    suggestions.forEach(suggestion => {
-        const btn = document.createElement('button');
-        btn.className = 'suggestion-btn';
-        btn.textContent = suggestion;
-        
+            suggestions.forEach(suggestion => {
+                const btn = document.createElement('button');
+                btn.className = 'suggestion-btn';
+                btn.textContent = suggestion;
+                
                 // 添加點擊事件
                 btn.addEventListener('click', () => {
-            console.log('點擊建議聯想按鈕:', suggestion);
-            const assocInput = document.getElementById('assocInput');
+                    console.log('點擊建議聯想按鈕:', suggestion);
+                    const assocInput = document.getElementById('assocInput');
                     if (!assocInput) {
                         console.error('找不到聯想輸入框');
                         return;
@@ -1345,8 +1493,8 @@ async function updateSuggestionButtons(card) {
                 });
                 
                 // 添加按鈕到容器
-        suggestionsContainer.appendChild(btn);
-    });
+                suggestionsContainer.appendChild(btn);
+            });
         } else {
             // 如果沒有生成建議，顯示錯誤信息
             const errorElement = document.createElement('p');
@@ -1355,20 +1503,14 @@ async function updateSuggestionButtons(card) {
             suggestionsContainer.appendChild(errorElement);
         }
     } catch (error) {
-        console.error('生成建議聯想時出錯:', error);
-        
-        // 顯示錯誤信息
-        suggestionsContainer.innerHTML = '';
-        const errorElement = document.createElement('p');
-        errorElement.textContent = '生成建議時出錯，請稍後再試';
-        errorElement.className = 'error';
-        suggestionsContainer.appendChild(errorElement);
+        console.error('生成聯想建議時出錯:', error);
+        suggestionsContainer.innerHTML = `
+            <div class="loading-suggestion error">
+                生成聯想建議時出錯: ${error.message}
+                <p>請檢查瀏覽器控制台獲取詳細錯誤信息</p>
+            </div>
+        `;
     }
-    
-    // 設置容器樣式
-    suggestionsContainer.style.display = 'flex';
-    suggestionsContainer.style.flexWrap = 'wrap';
-    suggestionsContainer.style.gap = '8px';
 }
 
 /**
@@ -1863,10 +2005,35 @@ async function generateAIContexts(card) {
                 contextSection.appendChild(contextItem);
             });
             
+            // 添加重新產生按鈕
+            const regenerateContainer = document.createElement('div');
+            regenerateContainer.className = 'regenerate-container';
+            
+            const regenerateBtn = document.createElement('button');
+            regenerateBtn.className = 'regenerate-btn';
+            regenerateBtn.innerHTML = '<i class="fas fa-sync-alt"></i> 重新產生常見用法';
+            regenerateBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await generateAIContexts(card);
+            });
+            
+            regenerateContainer.appendChild(regenerateBtn);
+            contextSection.appendChild(regenerateContainer);
+            
             // 更新卡片數據
             card.contexts = contexts;
             
-            // 保存到全局數據
+            // 確保在 cards 數組中也更新對應的單字
+            if (cards && currentCardIndex >= 0 && currentCardIndex < cards.length) {
+                console.log(`更新當前卡片索引 ${currentCardIndex} 的 contexts 欄位`);
+                cards[currentCardIndex].contexts = [...contexts]; // 使用展開運算符創建深拷貝
+            }
+            
+            // 使用 saveToDatabase 函數保存到數據庫
+            console.log(`直接保存到數據庫 - 單字ID: ${card.id}`);
+            await saveToDatabase(card.id, contexts);
+            
+            // 更新全局數據和本地儲存
             if (window.appData && window.appData.vocabulary) {
                 const wordId = card.id;
                 const vocabIndex = window.appData.vocabulary.findIndex(item => item.id === wordId);
@@ -1875,13 +2042,10 @@ async function generateAIContexts(card) {
                     console.log(`更新全局數據中 ID 為 ${wordId} 的單字常見用法`);
                     window.appData.vocabulary[vocabIndex].contexts = contexts;
                     
-                    // 儲存到本地儲存
                     try {
                         localStorage.setItem('vocabMasterData', JSON.stringify(window.appData));
                         console.log('數據已直接保存到本地儲存');
-                        
-                        // 顯示通知
-                        showNotification('常見用法已保存', 'success');
+                        showNotification('常見用法已永久保存', 'success');
                     } catch (error) {
                         console.error('保存到本地儲存時出錯:', error);
                         showNotification('保存失敗：' + error.message, 'error');
@@ -1908,7 +2072,7 @@ async function generateAIContexts(card) {
             const retryBtn = contextSection.querySelector('.ai-context-btn');
             if (retryBtn) {
                 retryBtn.addEventListener('click', async (e) => {
-    e.stopPropagation();
+                    e.stopPropagation();
                     await generateAIContexts(card);
                 });
             }
@@ -1947,7 +2111,7 @@ async function generateAIContexts(card) {
                     await generateFallbackContexts(card);
                 });
             }
-    } else {
+        } else {
             contextSection.innerHTML = `
                 <h4>常見用法：</h4>
                 <div class="loading-suggestion error">
@@ -2528,4 +2692,330 @@ function generateGenericContexts(word) {
             example: `This is a common ${word} that you'll encounter frequently.`
         }
     ];
-} 
+}
+
+/**
+ * 翻轉記憶卡的事件處理函數
+ * @param {Event} event - 點擊事件
+ */
+function flipCard(event) {
+    console.log('記憶卡被點擊，準備翻轉');
+    const flashcard = event.currentTarget;
+    flashcard.classList.toggle('flipped');
+    console.log('記憶卡翻轉狀態已切換:', flashcard.classList.contains('flipped'));
+}
+
+/**
+ * 使用備用方法生成單字的常見用法（當 API 配額用盡時）
+ * @param {Object} card - 當前卡片
+ */
+async function generateFallbackContexts(card) {
+    if (!card || !card.word) {
+        console.error('無法生成常見用法：無效的卡片數據');
+        return;
+    }
+    
+    const contextSection = document.querySelector('.context-section');
+    if (!contextSection) {
+        console.error('找不到上下文容器');
+        return;
+    }
+    
+    // 顯示加載中
+    contextSection.innerHTML = '<div class="loading-suggestion">正在生成常見用法（備用方法）...</div>';
+    
+    let contexts = [];
+    const word = card.word.toLowerCase();
+    const partOfSpeech = card.partOfSpeech || '';
+    
+    // 為一些常見單字提供預設的常見用法
+    if (word === 'example') {
+        contexts = [
+            {
+                phrase: "for example",
+                meaning: "舉例來說",
+                example: "Many countries, for example Japan, have aging populations."
+            },
+            {
+                phrase: "set an example",
+                meaning: "樹立榜樣",
+                example: "Parents should set an example for their children."
+            },
+            {
+                phrase: "lead by example",
+                meaning: "以身作則",
+                example: "Good managers lead by example, not just by giving orders."
+            },
+            {
+                phrase: "make an example of",
+                meaning: "懲戒...以儆效尤",
+                example: "The school made an example of him by suspending him for a week."
+            },
+            {
+                phrase: "a prime example",
+                meaning: "一個典型的例子",
+                example: "This is a prime example of how not to run a business."
+            }
+        ];
+    } else if (word === 'time') {
+        contexts = [
+            {
+                phrase: "on time",
+                meaning: "準時",
+                example: "The train arrived on time despite the bad weather."
+            },
+            {
+                phrase: "in time",
+                meaning: "及時",
+                example: "We arrived in time to see the beginning of the movie."
+            },
+            {
+                phrase: "time flies",
+                meaning: "光陰似箭",
+                example: "Time flies when you're having fun."
+            },
+            {
+                phrase: "take your time",
+                meaning: "慢慢來；不急",
+                example: "There's no rush, take your time to finish the work."
+            },
+            {
+                phrase: "for the time being",
+                meaning: "暫時；目前",
+                example: "We'll stay in this apartment for the time being until we find something better."
+            }
+        ];
+    } else if (word === 'water') {
+        contexts = [
+            {
+                phrase: "water down",
+                meaning: "沖淡；削弱",
+                example: "The company watered down the original proposal to make it more acceptable."
+            },
+            {
+                phrase: "like water off a duck's back",
+                meaning: "毫不在意；不受影響",
+                example: "Criticism is like water off a duck's back to him."
+            },
+            {
+                phrase: "water under the bridge",
+                meaning: "過去的事；已經無法改變的事",
+                example: "Our argument last week is water under the bridge now."
+            },
+            {
+                phrase: "keep one's head above water",
+                meaning: "勉強維持；度過難關",
+                example: "After losing his job, he's struggling to keep his head above water."
+            },
+            {
+                phrase: "test the waters",
+                meaning: "試探；嘗試",
+                example: "Before launching the product nationwide, they decided to test the waters in a few cities."
+            }
+        ];
+    } else {
+        // 根據詞性生成通用常見用法
+        if (partOfSpeech === 'n.' || partOfSpeech === 'noun') {
+            contexts = generateNounContexts(word);
+        } else if (partOfSpeech === 'v.' || partOfSpeech === 'verb') {
+            contexts = generateVerbContexts(word);
+        } else if (partOfSpeech === 'adj.' || partOfSpeech === 'adjective') {
+            contexts = generateAdjectiveContexts(word);
+        } else {
+            contexts = generateGenericContexts(word);
+        }
+    }
+    
+    // 顯示結果
+    if (contexts && contexts.length > 0) {
+        console.log('成功生成常見用法，數量:', contexts.length);
+        
+        // 清空加載提示
+        contextSection.innerHTML = '';
+        
+        // 添加標題
+        const title = document.createElement('h4');
+        title.innerHTML = '常見用法：';
+        contextSection.appendChild(title);
+        
+        // 添加常見用法
+        contexts.forEach(context => {
+            const contextItem = document.createElement('div');
+            contextItem.className = 'context-item';
+            
+            const phrase = document.createElement('p');
+            phrase.innerHTML = `<strong>${context.phrase}</strong> - ${context.meaning}`;
+            
+            const example = document.createElement('p');
+            example.className = 'example';
+            example.textContent = context.example;
+            
+            contextItem.appendChild(phrase);
+            contextItem.appendChild(example);
+            contextSection.appendChild(contextItem);
+        });
+        
+        // 添加說明
+        const noteElem = document.createElement('p');
+        noteElem.className = 'note';
+        noteElem.innerHTML = '<small>* 這些是系統生成的常見用法，可能不夠全面。API 配額恢復後可再次嘗試使用 AI 生成。</small>';
+        contextSection.appendChild(noteElem);
+        
+        // 添加重新產生按鈕
+        const regenerateContainer = document.createElement('div');
+        regenerateContainer.className = 'regenerate-container';
+        
+        const regenerateBtn = document.createElement('button');
+        regenerateBtn.className = 'regenerate-btn';
+        regenerateBtn.innerHTML = '<i class="fas fa-sync-alt"></i> 重新產生常見用法';
+        regenerateBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            await generateAIContexts(card);
+        });
+        
+        regenerateContainer.appendChild(regenerateBtn);
+        contextSection.appendChild(regenerateContainer);
+        
+        // 更新卡片數據
+        card.contexts = contexts;
+        
+        // 保存到全局數據和數據庫
+        if (window.appData && window.appData.vocabulary) {
+            const wordId = card.id;
+            const vocabIndex = window.appData.vocabulary.findIndex(item => item.id === wordId);
+            
+            if (vocabIndex !== -1) {
+                console.log(`更新全局數據中 ID 為 ${wordId} 的單字常見用法`);
+                window.appData.vocabulary[vocabIndex].contexts = contexts;
+                
+                // 儲存到本地儲存
+                try {
+                    localStorage.setItem('vocabMasterData', JSON.stringify(window.appData));
+                    console.log('數據已直接保存到本地儲存');
+                    
+                    // 同時保存到 IndexedDB 數據庫
+                    if (window.db && typeof window.db.updateWord === 'function' && typeof window.db.getWordById === 'function') {
+                        console.log(`開始保存常見用法到數據庫，單字ID: ${wordId}`);
+                        
+                        try {
+                            // 先檢查數據庫中是否存在此單字
+                            console.log(`檢查數據庫中是否存在 ID 為 ${wordId} 的單字...`);
+                            const existingWord = await window.db.getWordById(wordId);
+                            
+                            if (existingWord) {
+                                console.log(`已在數據庫中找到 ID 為 ${wordId} 的單字:`, existingWord);
+                                console.log(`原有 contexts 欄位存在: ${existingWord.contexts ? '是' : '否'}`);
+                                
+                                // 準備更新數據
+                                console.log(`準備更新常見用法，共 ${contexts.length} 項:`, contexts);
+                                
+                                // 創建一個新的單字對象，保留所有原有屬性但更新 contexts
+                                const updatedWord = { ...existingWord };
+                                updatedWord.contexts = contexts;
+                                updatedWord.updatedAt = new Date().toISOString();
+                                
+                                console.log(`即將更新單字數據到數據庫:`, updatedWord);
+                                
+                                // 保存到數據庫
+                                const updateResult = await window.db.updateWord(updatedWord);
+                                console.log(`數據庫更新結果:`, updateResult);
+                                
+                                // 驗證更新是否成功
+                                console.log(`驗證數據庫更新結果...`);
+                                const verifiedWord = await window.db.getWordById(wordId);
+                                
+                                if (verifiedWord && verifiedWord.contexts) {
+                                    console.log(`驗證成功! 單字 ${verifiedWord.word} 現在包含 ${verifiedWord.contexts.length} 個常見用法`);
+                                    console.log(`常見用法內容:`, verifiedWord.contexts);
+                                } else {
+                                    console.error(`驗證失敗! 無法在數據庫中找到更新後的常見用法`);
+                                    if (verifiedWord) {
+                                        console.error(`單字存在但 contexts 欄位為空或不存在:`, verifiedWord);
+                                    }
+                                }
+                            } else {
+                                console.error(`數據庫中找不到 ID 為 ${wordId} 的單字`);
+                            }
+                        } catch (dbError) {
+                            console.error(`數據庫操作失敗:`, dbError);
+                            console.error(`錯誤詳情:`, dbError.stack || dbError.message || dbError);
+                            
+                            // 嘗試顯示更多詳細信息
+                            if (dbError.name) console.error(`錯誤名稱: ${dbError.name}`);
+                            if (dbError.code) console.error(`錯誤代碼: ${dbError.code}`);
+                        }
+                    } else {
+                        console.warn(`數據庫操作函數不可用，檢查:`, {
+                            'window.db存在': !!window.db,
+                            'updateWord函數可用': !!(window.db && typeof window.db.updateWord === 'function'),
+                            'getWordById函數可用': !!(window.db && typeof window.db.getWordById === 'function')
+                        });
+                    }
+                    
+                    // 顯示通知
+                    showNotification('常見用法已永久保存', 'success');
+                } catch (error) {
+                    console.error('保存到本地儲存時出錯:', error);
+                    showNotification('保存失敗：' + error.message, 'error');
+                }
+            } else {
+                console.error(`在全局數據中找不到 ID 為 ${wordId} 的單字，無法更新`);
+            }
+        } else {
+            console.error('全局數據不可用，無法更新常見用法');
+        }
+    } else {
+        console.warn('未能生成常見用法');
+        contextSection.innerHTML = `
+            <h4>常見用法：</h4>
+            <div class="loading-suggestion error">
+                無法生成常見用法，請稍後再試。
+            </div>
+            <button class="ai-context-btn"><i class="fas fa-robot"></i> 重試</button>
+        `;
+        
+        // 為重試按鈕添加事件監聽器
+        const retryBtn = contextSection.querySelector('.ai-context-btn');
+        if (retryBtn) {
+            retryBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await generateFallbackContexts(card);
+            });
+        }
+    }
+}
+
+// 保存到數據庫
+async function saveToDatabase(wordId, contexts) {
+    try {
+        // 首先獲取完整的單字數據，避免覆蓋其他屬性
+        let completeWordData;
+        try {
+            completeWordData = await window.db.getWordById(wordId);
+            console.log('從資料庫獲取完整單字數據:', completeWordData);
+        } catch (getWordError) {
+            console.warn('無法從資料庫獲取完整單字數據，將使用當前卡片數據:', getWordError);
+            completeWordData = card;
+        }
+        
+        // 準備更新對象 - 只更新 contexts 欄位，保留其他欄位不變
+        const updatedWord = {
+            ...completeWordData,  // 保留所有現有屬性
+            id: wordId,
+            contexts: contexts,
+            updatedAt: new Date().toISOString()
+        };
+        
+        // 確保保留基本屬性
+        updatedWord.word = updatedWord.word || card.word;
+        updatedWord.meaning = updatedWord.meaning || card.meaning;
+        updatedWord.partOfSpeech = updatedWord.partOfSpeech || card.partOfSpeech;
+        
+        console.log('正在更新資料庫中的常見用法數據:', updatedWord);
+        await window.db.updateWord(updatedWord);
+        console.log('資料庫中的常見用法數據已更新');
+    } catch (error) {
+        console.error('保存常見用法到數據庫時出錯:', error);
+        alert('保存失敗：' + error.message);
+    }
+}

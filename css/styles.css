@@ -1905,4 +1905,41 @@ body.modal-open {
 
 .loading-suggestion.error a:hover {
     color: #004499;
+}
+
+/* 重新生成聯想按鈕容器 */
+.regenerate-container {
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 12px;
+    text-align: center;
+}
+
+.regenerate-container p {
+    margin-bottom: 10px;
+    color: #666;
+}
+
+.regenerate-btn {
+    background-color: #6c5ce7;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin-top: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.3s;
+}
+
+.regenerate-btn:hover {
+    background-color: #5649c0;
+}
+
+.regenerate-btn i {
+    margin-right: 6px;
 } 

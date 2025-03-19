@@ -60,7 +60,7 @@ async function initDatabase() {
 // 開啟資料庫連接
 async function openDatabase() {
     return new Promise((resolve, reject) => {
-        const request = window.indexedDB.open('VocabularyDB', 1);
+        const request = window.indexedDB.open('VocabularyDB', 3); // 增加版本號到 3
         
         request.onerror = (event) => {
             reject('資料庫開啟失敗');
@@ -72,6 +72,7 @@ async function openDatabase() {
         
         request.onupgradeneeded = (event) => {
             const db = event.target.result;
+            console.log(`資料庫升級: 從版本 ${event.oldVersion} 升級到版本 ${event.newVersion}`);
             
             // 建立單字表
             if (!db.objectStoreNames.contains('vocabulary')) {
@@ -79,6 +80,26 @@ async function openDatabase() {
                 vocabularyStore.createIndex('word', 'word', { unique: true });
                 vocabularyStore.createIndex('status', 'status', { unique: false });
                 vocabularyStore.createIndex('createdAt', 'createdAt', { unique: false });
+                // contexts 欄位會自動包含在資料結構中，不需要特別的索引
+                console.log('建立 vocabulary 表，支援 contexts 欄位');
+            } else if (event.oldVersion < 3) {
+                // 如果是從舊版本升級到版本3，進行資料遷移
+                console.log('從舊版本升級資料庫到版本3，開始資料遷移以支援 contexts 欄位');
+                
+                // 執行資料遷移
+                setTimeout(() => {
+                    try {
+                        migrateVocabularyData()
+                            .then(result => {
+                                console.log('資料遷移完成，已處理單字數量:', result);
+                            })
+                            .catch(error => {
+                                console.error('資料遷移失敗:', error);
+                            });
+                    } catch (error) {
+                        console.error('啟動資料遷移時出錯:', error);
+                    }
+                }, 1000);
             }
             
             // 建立詞彙表
@@ -94,6 +115,46 @@ async function openDatabase() {
                 wordListItemsStore.createIndex('listId', 'listId', { unique: false });
             }
         };
+    });
+}
+
+/**
+ * 將資料庫中的單字資料遷移到新版本，以支援 contexts 欄位
+ * 這個函數會讀取所有單字，確保其格式一致並支援 contexts 欄位
+ */
+async function migrateVocabularyData() {
+    return new Promise(async (resolve, reject) => {
+        try {
+            console.log('開始資料遷移過程...');
+            
+            // 取得所有單字
+            const words = await getAllWords();
+            console.log(`準備遷移 ${words.length} 個單字`);
+            
+            let processedCount = 0;
+            
+            // 處理每個單字
+            for (const word of words) {
+                // 確保 contexts 欄位存在
+                if (!word.contexts) {
+                    word.contexts = [];
+                    
+                    // 更新單字
+                    await updateWord(word);
+                    processedCount++;
+                    
+                    if (processedCount % 10 === 0) {
+                        console.log(`已處理 ${processedCount}/${words.length} 個單字`);
+                    }
+                }
+            }
+            
+            console.log(`資料遷移完成，共處理了 ${processedCount} 個單字`);
+            resolve(processedCount);
+        } catch (error) {
+            console.error('資料遷移過程中出錯:', error);
+            reject(error);
+        }
     });
 }
 
@@ -138,21 +199,46 @@ async function getAllWords() {
 // 更新單字
 async function updateWord(word) {
     return new Promise((resolve, reject) => {
-        const transaction = db.transaction(['vocabulary'], 'readwrite');
-        const store = transaction.objectStore('vocabulary');
-        
-        // 更新修改時間
-        word.updatedAt = new Date().toISOString();
-        
-        const request = store.put(word);
-        
-        request.onsuccess = () => {
-            resolve(request.result);
-        };
-        
-        request.onerror = () => {
-            reject('更新單字失敗');
-        };
+        try {
+            console.log(`開始更新單字: ID=${word.id}, 詞=${word.word}`);
+            
+            // 先序列化再反序列化以確保創建對象的完整深拷貝，避免引用問題
+            const wordClone = JSON.parse(JSON.stringify(word));
+            console.log(`單字對象已深拷貝，檢查 contexts 欄位: ${wordClone.contexts ? '存在' : '不存在'}`);
+            if (wordClone.contexts) {
+                console.log(`contexts 內容 (${wordClone.contexts.length} 項):`, wordClone.contexts);
+            }
+            
+            const transaction = db.transaction(['vocabulary'], 'readwrite');
+            const store = transaction.objectStore('vocabulary');
+            
+            // 更新修改時間
+            wordClone.updatedAt = new Date().toISOString();
+            
+            console.log(`準備存儲單字到數據庫，完整對象:`, wordClone);
+            const request = store.put(wordClone);
+            
+            request.onsuccess = (event) => {
+                console.log(`單字更新成功，返回值:`, event.target.result);
+                resolve(event.target.result);
+            };
+            
+            request.onerror = (event) => {
+                console.error(`更新單字失敗:`, event.target.error);
+                reject('更新單字失敗: ' + (event.target.error ? event.target.error.message : '未知錯誤'));
+            };
+            
+            transaction.oncomplete = () => {
+                console.log(`數據庫事務完成，單字更新操作結束`);
+            };
+            
+            transaction.onerror = (event) => {
+                console.error(`數據庫事務出錯:`, event.target.error);
+            };
+        } catch (error) {
+            console.error(`更新單字時發生意外錯誤:`, error);
+            reject(`更新單字時意外錯誤: ${error.message || error}`);
+        }
     });
 }
 
@@ -716,7 +802,8 @@ window.db = {
     addWordToList,
     removeWordFromList,
     getWordsInList,
-    importBasic2005Words
+    importBasic2005Words,
+    getWordById
 };
 
 // 確保所有功能都可正常訪問

@@ -301,6 +301,10 @@ function createListItem(list) {
     item.className = 'vocab-list-item';
     item.setAttribute('data-list-id', list.id);
     
+    // 創建上方區域，包含圖標和名稱
+    const topSection = document.createElement('div');
+    topSection.className = 'list-item-top';
+    
     const icon = document.createElement('i');
     icon.className = list.icon || 'fas fa-list';
     
@@ -308,18 +312,23 @@ function createListItem(list) {
     name.className = 'list-name';
     name.textContent = list.name;
     
+    topSection.appendChild(icon);
+    topSection.appendChild(name);
+    
+    // 創建下方區域，包含計數和操作按鈕
+    const bottomSection = document.createElement('div');
+    bottomSection.className = 'list-item-bottom';
+    
     const count = document.createElement('span');
     count.className = 'word-count';
     count.textContent = '0';
     
-    item.appendChild(icon);
-    item.appendChild(name);
-    item.appendChild(count);
+    bottomSection.appendChild(count);
     
     // 添加操作按鈕
-        const actions = document.createElement('div');
-        actions.className = 'list-actions';
-        
+    const actions = document.createElement('div');
+    actions.className = 'list-actions';
+    
     // 為所有詞彙表添加清空按鈕，但確認訊息和處理方式不同
     const clearBtn = document.createElement('button');
     clearBtn.className = 'clear-list-btn';
@@ -369,7 +378,7 @@ function createListItem(list) {
         deleteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             if (confirm(`確定要刪除詞彙組「${list.name}」嗎？`)) {
-            deleteVocabList(list.id);
+                deleteVocabList(list.id);
             }
         });
         
@@ -377,7 +386,11 @@ function createListItem(list) {
         actions.appendChild(deleteBtn);
     }
     
-    item.appendChild(actions);
+    bottomSection.appendChild(actions);
+    
+    // 組合
+    item.appendChild(topSection);
+    item.appendChild(bottomSection);
     
     // 添加點擊事件
     item.addEventListener('click', () => {
@@ -2762,7 +2775,7 @@ function addVocabularyStyles() {
     
     .vocab-list-item {
         display: flex;
-        align-items: center;
+        flex-direction: column;
         padding: 10px;
         border-radius: 6px;
         margin-bottom: 5px;
@@ -2777,6 +2790,20 @@ function addVocabularyStyles() {
     .vocab-list-item.active {
         background: #4299e1;
         color: white;
+    }
+    
+    .list-item-top {
+        display: flex;
+        align-items: center;
+        margin-bottom: 5px;
+        width: 100%;
+    }
+    
+    .list-item-bottom {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
     }
     
     .vocab-list-item i {
@@ -2804,8 +2831,8 @@ function addVocabularyStyles() {
     }
     
     .list-actions {
-        display: none;
-        margin-left: 5px;
+        display: flex;
+        margin-left: 10px;
     }
     
     .vocab-list-item:hover .list-actions {
