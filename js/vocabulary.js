@@ -1056,12 +1056,160 @@ function filterWordsByTerm(words, term) {
 }
 
 /**
- * 從Cambridge Dictionary獲取美式音標
+ * 從劍橋詞典獲取音標（新版實現）
  * @param {string} word - 要查詢的單字
- * @returns {Promise<string>} - 美式音標
+ * @returns {Promise<string>} - 返回美式英語音標
+ */
+async function getCambridgePronunciation(word) {
+  try {
+    // 首先嘗試使用Free Dictionary API
+    const freeDictPhonetic = await getPhoneticFromFreeDictionary(word);
+    if (freeDictPhonetic) {
+      console.log(`Free Dictionary API 成功獲取到音標: ${freeDictPhonetic}`);
+      return freeDictPhonetic;
+    }
+    
+    // 如果Free Dictionary API失敗，嘗試使用CORS代理訪問劍橋詞典
+    const corsProxy = "https://corsproxy.io/?";
+    const url = `${corsProxy}https://dictionary.cambridge.org/zht/dictionary/english/${encodeURIComponent(word)}`;
+    console.log(`嘗試從 ${url} 獲取音標`);
+    
+    const response = await fetch(url);
+    const html = await response.text();
+
+    // 修正正則表達式以匹配劍橋詞典的美式音標格式
+    const pronunciationRegex = /id="us_pron_1".*?<span class="ipa">(.*?)<\/span>/s;
+    const match = pronunciationRegex.exec(html);
+
+    if (match && match[1]) {
+      let pronunciation = `/${match[1]}/`;
+      console.log(`成功獲取到音標: ${pronunciation}`);
+      return pronunciation;
+    } else {
+      console.log(`未找到音標，嘗試備用正則表達式`);
+      // 備用正則表達式
+      const backupRegex = /class="pron-info.*?dpron-i".*?<span class="ipa">(.*?)<\/span>/s;
+      const backupMatch = backupRegex.exec(html);
+      
+      if (backupMatch && backupMatch[1]) {
+        let pronunciation = `/${backupMatch[1]}/`;
+        console.log(`使用備用方法獲取到音標: ${pronunciation}`);
+        return pronunciation;
+      }
+      
+      console.log(`所有方法均未找到音標`);
+      return null;
+    }
+  } catch (error) {
+    console.error("取得音標時發生錯誤:", error);
+    return null;
+  }
+}
+
+/**
+ * 從劍橋詞典獲取音標 (舊版函數，現使用新的實現)
+ * @param {string} word - 要查詢的單字
+ * @returns {Promise<string>} - 返回美式英語音標
+ */
+async function fetchPhoneticFromCambridge(word) {
+    if (!word) return '';
+    
+    try {
+        showNotification(`正在從劍橋詞典獲取 "${word}" 的音標...`, 'info');
+        
+        // 嘗試使用新的音標獲取函數
+        const pronunciation = await getCambridgePronunciation(word);
+        
+        if (pronunciation) {
+            console.log(`從劍橋詞典獲取到 "${word}" 的音標: ${pronunciation}`);
+            showNotification(`成功獲取 "${word}" 的音標`, 'success');
+            return pronunciation;
+        }
+        
+        // 如果新函數無法獲取音標，使用備用的手動輸入數據庫
+        const phonetics = {
+            'a': '/ə, eɪ/',
+            'abroad': '/əˈbrɑːd/',
+            'about': '/əˈbaʊt/',
+            'above': '/əˈbʌv/',
+            'across': '/əˈkrɔs/',
+            'able': '/ˈeɪ.bəl/',
+            'act': '/ækt/',
+            'action': '/ˈæk.ʃən/',
+            'add': '/æd/',
+            'address': '/əˈdres, ˈæd.res/',
+            'adult': '/ˈæd.ʌlt, əˈdʌlt/',
+            'after': '/ˈæf.tɚ/',
+            'again': '/əˈɡen/',
+            'against': '/əˈɡenst/',
+            'age': '/eɪdʒ/',
+            'agree': '/əˈɡriː/',
+            'air': '/er/',
+            'all': '/ɔːl/',
+            'allow': '/əˈlaʊ/',
+            'almost': '/ˈɔːl.moʊst/',
+            'alone': '/əˈloʊn/',
+            'along': '/əˈlɑːŋ/',
+            'already': '/ɔːlˈre.di/',
+            'also': '/ˈɔːl.soʊ/',
+            'always': '/ˈɔːl.weɪz/',
+            'and': '/ənd, ən, ænd/',
+            'animal': '/ˈæn.ɪ.məl/',
+            'another': '/əˈnʌð.ɚ/',
+            'answer': '/ˈæn.sɚ/',
+            'any': '/ˈen.i/',
+            'anyone': '/ˈen.i.wʌn/',
+            'anything': '/ˈen.i.θɪŋ/',
+            'apartment': '/əˈpɑːrt.mənt/',
+            'apple': '/ˈæp.əl/',
+            'April': '/ˈeɪ.prəl/'
+        };
+        
+        // 先檢查是否在本地數據庫中有這個單字的音標
+        if (phonetics[word.toLowerCase()]) {
+            const phonetic = phonetics[word.toLowerCase()];
+            console.log(`從本地數據庫獲取到 "${word}" 的音標: ${phonetic}`);
+            showNotification(`成功獲取 "${word}" 的音標`, 'success');
+            return phonetic;
+        }
+        
+        // 如果本地數據庫中沒有，提示用戶手動輸入
+        console.log(`無法從本地數據庫找到 "${word}" 的音標`);
+        showNotification(`請手動輸入 "${word}" 的音標`, 'info');
+        
+        // 顯示輸入對話框
+        const userInput = prompt(`請為 "${word}" 輸入美式音標 (例如: /əˈbraʊd/):`);
+        
+        if (userInput) {
+            console.log(`用戶輸入的音標: ${userInput}`);
+            showNotification(`已使用手動輸入的音標`, 'success');
+            return userInput;
+        } else {
+            console.log('用戶取消輸入音標');
+            showNotification('未提供音標', 'warning');
+            return '';
+        }
+    } catch (error) {
+        console.error('獲取音標失敗:', error);
+        showNotification('獲取音標失敗，請稍後再試或手動輸入', 'error');
+        return '';
+    }
+}
+
+/**
+ * 從劍橋詞典獲取音標
+ * @param {string} word - 單字
+ * @returns {Promise<string>} - 音標
  */
 async function getCambridgePhonetic(word) {
     try {
+        // 首先嘗試使用新的函數獲取音標
+        const pronunciation = await getCambridgePronunciation(word);
+        if (pronunciation) {
+            return pronunciation;
+        }
+        
+        // 如果新函數無法獲取，使用原始方法
         const response = await fetch(`https://dictionary.cambridge.org/dictionary/english/${encodeURIComponent(word)}`);
         const html = await response.text();
         
@@ -1530,87 +1678,6 @@ async function viewWordDetails(wordId) {
     } catch (error) {
         console.error('顯示單字詳情時發生錯誤:', error);
         showNotification('顯示單字詳情時發生錯誤', 'error');
-    }
-}
-
-/**
- * 從劍橋詞典獲取音標
- * @param {string} word - 要查詢的單字
- * @returns {Promise<string>} - 返回美式英語音標
- */
-async function fetchPhoneticFromCambridge(word) {
-    if (!word) return '';
-    
-    try {
-        showNotification(`正在從劍橋詞典獲取 "${word}" 的音標...`, 'info');
-        
-        // 使用手動輸入的音標數據庫
-        const phonetics = {
-            'a': '/ə, eɪ/',
-            'abroad': '/əˈbrɑːd/',
-            'about': '/əˈbaʊt/',
-            'above': '/əˈbʌv/',
-            'across': '/əˈkrɔs/',
-            'able': '/ˈeɪ.bəl/',
-            'act': '/ækt/',
-            'action': '/ˈæk.ʃən/',
-            'add': '/æd/',
-            'address': '/əˈdres, ˈæd.res/',
-            'adult': '/ˈæd.ʌlt, əˈdʌlt/',
-            'after': '/ˈæf.tɚ/',
-            'again': '/əˈɡen/',
-            'against': '/əˈɡenst/',
-            'age': '/eɪdʒ/',
-            'agree': '/əˈɡriː/',
-            'air': '/er/',
-            'all': '/ɔːl/',
-            'allow': '/əˈlaʊ/',
-            'almost': '/ˈɔːl.moʊst/',
-            'alone': '/əˈloʊn/',
-            'along': '/əˈlɑːŋ/',
-            'already': '/ɔːlˈre.di/',
-            'also': '/ˈɔːl.soʊ/',
-            'always': '/ˈɔːl.weɪz/',
-            'and': '/ənd, ən, ænd/',
-            'animal': '/ˈæn.ɪ.məl/',
-            'another': '/əˈnʌð.ɚ/',
-            'answer': '/ˈæn.sɚ/',
-            'any': '/ˈen.i/',
-            'anyone': '/ˈen.i.wʌn/',
-            'anything': '/ˈen.i.θɪŋ/',
-            'apartment': '/əˈpɑːrt.mənt/',
-            'apple': '/ˈæp.əl/',
-            'April': '/ˈeɪ.prəl/'
-        };
-        
-        // 先檢查是否在本地數據庫中有這個單字的音標
-        if (phonetics[word.toLowerCase()]) {
-            const phonetic = phonetics[word.toLowerCase()];
-            console.log(`從本地數據庫獲取到 "${word}" 的音標: ${phonetic}`);
-            showNotification(`成功獲取 "${word}" 的音標`, 'success');
-            return phonetic;
-        }
-        
-        // 如果本地數據庫中沒有，提示用戶手動輸入
-        console.log(`無法從本地數據庫找到 "${word}" 的音標`);
-        showNotification(`請手動輸入 "${word}" 的音標`, 'info');
-        
-        // 顯示輸入對話框
-        const userInput = prompt(`請為 "${word}" 輸入美式音標 (例如: /əˈbraʊd/):`);
-        
-        if (userInput) {
-            console.log(`用戶輸入的音標: ${userInput}`);
-            showNotification(`已使用手動輸入的音標`, 'success');
-            return userInput;
-        } else {
-            console.log('用戶取消輸入音標');
-            showNotification('未提供音標', 'warning');
-            return '';
-        }
-    } catch (error) {
-        console.error('獲取音標失敗:', error);
-        showNotification('獲取音標失敗，請稍後再試或手動輸入', 'error');
-        return '';
     }
 }
 
@@ -3653,5 +3720,327 @@ async function clearVocabList(id) {
         console.error('清空詞彙表失敗:', error);
         showNotification('清空詞彙表失敗，請稍後再試', 'error');
     }
+}
+
+/**
+ * 添加全部音標獲取按鈕
+ */
+function addPhoneticTestButton() {
+    // 檢查是否已存在測試按鈕
+    if (document.getElementById('phoneticTestBtn')) {
+        return;
+    }
+    
+    // 創建測試按鈕
+    const testBtn = document.createElement('button');
+    testBtn.id = 'phoneticTestBtn';
+    testBtn.className = 'btn secondary';
+    testBtn.innerHTML = '<i class="fas fa-volume-up"></i> 全部音標獲取';
+    testBtn.style.position = 'fixed';
+    testBtn.style.bottom = '20px';
+    testBtn.style.right = '20px';
+    testBtn.style.zIndex = '9999';
+    
+    // 添加點擊事件
+    testBtn.addEventListener('click', async () => {
+        if (!confirm('確定要為所有單字獲取音標嗎？這可能需要一些時間。')) {
+            return;
+        }
+        
+        try {
+            // 獲取所有單字
+            const allWords = await window.db.getAllWords();
+            if (!allWords || allWords.length === 0) {
+                showNotification('沒有找到任何單字', 'warning');
+                return;
+            }
+            
+            showNotification(`開始為 ${allWords.length} 個單字獲取音標，請稍候...`, 'info');
+            
+            // 創建進度指示器
+            const progressContainer = document.createElement('div');
+            progressContainer.id = 'progressContainer';
+            progressContainer.style.position = 'fixed';
+            progressContainer.style.top = '50%';
+            progressContainer.style.left = '50%';
+            progressContainer.style.transform = 'translate(-50%, -50%)';
+            progressContainer.style.background = 'white';
+            progressContainer.style.padding = '20px';
+            progressContainer.style.borderRadius = '8px';
+            progressContainer.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+            progressContainer.style.zIndex = '10000';
+            progressContainer.style.minWidth = '300px';
+            progressContainer.style.textAlign = 'center';
+            
+            const progressTitle = document.createElement('h3');
+            progressTitle.textContent = '正在獲取音標';
+            progressTitle.style.marginBottom = '15px';
+            
+            const progressText = document.createElement('div');
+            progressText.id = 'progressText';
+            progressText.textContent = '準備中...';
+            progressText.style.marginBottom = '10px';
+            
+            const progressBar = document.createElement('div');
+            progressBar.style.height = '20px';
+            progressBar.style.background = '#f0f0f0';
+            progressBar.style.borderRadius = '10px';
+            progressBar.style.overflow = 'hidden';
+            
+            const progressFill = document.createElement('div');
+            progressFill.id = 'progressFill';
+            progressFill.style.height = '100%';
+            progressFill.style.width = '0%';
+            progressFill.style.background = '#4299e1';
+            progressFill.style.transition = 'width 0.3s';
+            
+            const cancelButton = document.createElement('button');
+            cancelButton.textContent = '取消';
+            cancelButton.style.marginTop = '15px';
+            cancelButton.style.padding = '5px 15px';
+            cancelButton.style.border = 'none';
+            cancelButton.style.borderRadius = '4px';
+            cancelButton.style.background = '#e53e3e';
+            cancelButton.style.color = 'white';
+            cancelButton.style.cursor = 'pointer';
+            
+            progressBar.appendChild(progressFill);
+            progressContainer.appendChild(progressTitle);
+            progressContainer.appendChild(progressText);
+            progressContainer.appendChild(progressBar);
+            progressContainer.appendChild(cancelButton);
+            document.body.appendChild(progressContainer);
+            
+            // 取消標誌
+            let isCancelled = false;
+            cancelButton.addEventListener('click', () => {
+                isCancelled = true;
+                progressText.textContent = '正在取消...';
+            });
+            
+            // 記錄成功和失敗的數量
+            let successCount = 0;
+            let failCount = 0;
+            let skippedCount = 0;
+            
+            // 批次處理，每次處理5個單字，避免過多並發請求
+            const batchSize = 5;
+            const totalBatches = Math.ceil(allWords.length / batchSize);
+            
+            // 處理每批單字
+            for (let i = 0; i < totalBatches; i++) {
+                if (isCancelled) {
+                    break;
+                }
+                
+                const start = i * batchSize;
+                const end = Math.min(start + batchSize, allWords.length);
+                const batch = allWords.slice(start, end);
+                
+                // 更新進度UI
+                const progress = Math.round((i / totalBatches) * 100);
+                progressFill.style.width = `${progress}%`;
+                progressText.textContent = `處理中: ${start + 1} - ${end} / ${allWords.length} (${progress}%)`;
+                
+                // 並行處理這一批的單字
+                const promises = batch.map(async (word) => {
+                    if (isCancelled) return;
+                    
+                    // 如果已經有音標，則跳過
+                    if (word.phonetic && word.phonetic.trim()) {
+                        console.log(`跳過 "${word.word}": 已有音標 ${word.phonetic}`);
+                        skippedCount++;
+                        return;
+                    }
+                    
+                    try {
+                        // 獲取音標
+                        console.log(`嘗試獲取 "${word.word}" 的音標`);
+                        const phonetic = await getPhoneticFromFreeDictionary(word.word);
+                        
+                        if (phonetic) {
+                            // 更新單字音標
+                            const updatedWord = { ...word, phonetic };
+                            await window.db.updateWord(updatedWord);
+                            console.log(`成功為 "${word.word}" 獲取並更新音標: ${phonetic}`);
+                            successCount++;
+                        } else {
+                            console.log(`無法為 "${word.word}" 獲取音標`);
+                            failCount++;
+                        }
+                    } catch (err) {
+                        console.error(`處理 "${word.word}" 時出錯:`, err);
+                        failCount++;
+                    }
+                });
+                
+                // 等待這一批處理完成
+                await Promise.all(promises);
+                
+                // 小延遲，避免API限流
+                await new Promise(r => setTimeout(r, 1000));
+            }
+            
+            // 刪除進度指示器
+            document.body.removeChild(progressContainer);
+            
+            // 重新載入詞彙數據
+            await loadVocabularyData();
+            
+            // 顯示最終結果
+            if (isCancelled) {
+                showNotification(`音標獲取已取消。成功: ${successCount}, 失敗: ${failCount}, 跳過: ${skippedCount}`, 'warning');
+            } else {
+                showNotification(`音標獲取完成！成功: ${successCount}, 失敗: ${failCount}, 跳過: ${skippedCount}`, 'success');
+            }
+            
+        } catch (error) {
+            console.error('獲取音標過程中發生錯誤:', error);
+            showNotification('獲取音標失敗，請查看控制台以獲取詳細訊息', 'error');
+            
+            // 移除可能仍存在的進度指示器
+            const progressContainer = document.getElementById('progressContainer');
+            if (progressContainer) {
+                document.body.removeChild(progressContainer);
+            }
+        }
+    });
+    
+    // 添加到頁面
+    document.body.appendChild(testBtn);
+}
+
+// 文檔加載完成後添加測試按鈕
+document.addEventListener('DOMContentLoaded', () => {
+    // 延遲添加測試按鈕，確保其他元素已加載
+    setTimeout(addPhoneticTestButton, 2000);
+});
+
+/**
+ * 使用Free Dictionary API獲取單字音標
+ * @param {string} word - 要查詢的單字
+ * @returns {Promise<string>} - 返回音標
+ */
+async function getPhoneticFromFreeDictionary(word) {
+  try {
+    if (!word) return null;
+    word = word.trim().toLowerCase();
+    
+    console.log(`嘗試從Free Dictionary API獲取「${word}」的音標`);
+    const url = `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`;
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.log(`API回應狀態異常: ${response.status}`);
+      return null;
+    }
+    
+    const data = await response.json();
+    
+    // 檢查是否有有效回應
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      console.log('API未返回有效數據');
+      return null;
+    }
+    
+    // 遍歷所有返回的數據
+    for (const entry of data) {
+      // 先檢查單字級別的音標
+      if (entry.phonetic) {
+        console.log(`找到單字級別音標: ${entry.phonetic}`);
+        // 確保音標格式正確 (包含在// 中)
+        if (entry.phonetic.startsWith('/') && entry.phonetic.endsWith('/')) {
+          return entry.phonetic;
+        } else {
+          return `/${entry.phonetic.replace(/^\/|\/$/g, '')}/`;
+        }
+      }
+      
+      // 檢查phonetics數組
+      if (entry.phonetics && Array.isArray(entry.phonetics) && entry.phonetics.length > 0) {
+        // 優先尋找美式發音
+        const usPhonetic = entry.phonetics.find(p => p.audio && p.audio.includes('us'));
+        if (usPhonetic && usPhonetic.text) {
+          console.log(`找到美式音標: ${usPhonetic.text}`);
+          // 確保音標格式正確
+          if (usPhonetic.text.startsWith('/') && usPhonetic.text.endsWith('/')) {
+            return usPhonetic.text;
+          } else {
+            return `/${usPhonetic.text.replace(/^\/|\/$/g, '')}/`;
+          }
+        }
+        
+        // 如果沒有找到美式發音，使用第一個有文本的音標
+        for (const phonetic of entry.phonetics) {
+          if (phonetic.text) {
+            console.log(`找到可用音標: ${phonetic.text}`);
+            // 確保音標格式正確
+            if (phonetic.text.startsWith('/') && phonetic.text.endsWith('/')) {
+              return phonetic.text;
+            } else {
+              return `/${phonetic.text.replace(/^\/|\/$/g, '')}/`;
+            }
+          }
+        }
+      }
+    }
+    
+    console.log('未在API回應中找到音標');
+    return null;
+  } catch (error) {
+    console.error('從Free Dictionary獲取音標時出錯:', error);
+    return null;
+  }
+}
+
+/**
+ * 從劍橋詞典獲取音標 (新版實現)
+ * @param {string} word - 要查詢的單字
+ * @returns {Promise<string>} - 返回美式英語音標
+ */
+async function getCambridgePronunciation(word) {
+  try {
+    // 首先嘗試使用Free Dictionary API
+    const freeDictPhonetic = await getPhoneticFromFreeDictionary(word);
+    if (freeDictPhonetic) {
+      console.log(`Free Dictionary API 成功獲取到音標: ${freeDictPhonetic}`);
+      return freeDictPhonetic;
+    }
+    
+    // 如果Free Dictionary API失敗，嘗試使用CORS代理訪問劍橋詞典
+    const corsProxy = "https://corsproxy.io/?";
+    const url = `${corsProxy}https://dictionary.cambridge.org/zht/dictionary/english/${encodeURIComponent(word)}`;
+    console.log(`嘗試從 ${url} 獲取音標`);
+    
+    const response = await fetch(url);
+    const html = await response.text();
+
+    // 修正正則表達式以匹配劍橋詞典的美式音標格式
+    const pronunciationRegex = /id="us_pron_1".*?<span class="ipa">(.*?)<\/span>/s;
+    const match = pronunciationRegex.exec(html);
+
+    if (match && match[1]) {
+      let pronunciation = `/${match[1]}/`;
+      console.log(`成功獲取到音標: ${pronunciation}`);
+      return pronunciation;
+    } else {
+      console.log(`未找到音標，嘗試備用正則表達式`);
+      // 備用正則表達式
+      const backupRegex = /class="pron-info.*?dpron-i".*?<span class="ipa">(.*?)<\/span>/s;
+      const backupMatch = backupRegex.exec(html);
+      
+      if (backupMatch && backupMatch[1]) {
+        let pronunciation = `/${backupMatch[1]}/`;
+        console.log(`使用備用方法獲取到音標: ${pronunciation}`);
+        return pronunciation;
+      }
+      
+      console.log(`所有方法均未找到音標`);
+      return null;
+    }
+  } catch (error) {
+    console.error("取得音標時發生錯誤:", error);
+    return null;
+  }
 }
   
