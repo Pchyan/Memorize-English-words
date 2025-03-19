@@ -5,6 +5,7 @@
 
 // 當DOM加載完成後初始化應用
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM 已加載完成，初始化應用...');
     initApp();
 });
 
@@ -26,6 +27,25 @@ function initApp() {
     
     // 初始化模擬數據
     initMockData();
+    
+    // 如果當前頁面是記憶卡頁面，初始化記憶卡功能
+    const currentPage = document.querySelector('.page.active');
+    if (currentPage && currentPage.id === 'flashcards') {
+        console.log('當前頁面是記憶卡頁面，開始初始化記憶卡功能...');
+        
+        // 確保 flashcards.js 已加載並執行
+        if (typeof initFlashcards === 'function') {
+            setTimeout(async () => {
+                try {
+                    await initFlashcards();
+                } catch (error) {
+                    console.error('直接初始化記憶卡功能失敗:', error);
+                }
+            }, 200); // 稍微延遲，確保頁面元素完全加載
+        } else {
+            console.error('找不到 initFlashcards 函數，請確認 flashcards.js 已正確載入');
+        }
+    }
 }
 
 /**
@@ -91,7 +111,10 @@ async function switchPage(pageId) {
             // 初始化記憶卡頁面
             if (typeof initFlashcards === 'function') {
                 try {
-                    await initFlashcards();
+                    // 延遲一點初始化，確保頁面已完全切換和渲染
+                    setTimeout(async () => {
+                        await initFlashcards();
+                    }, 100);
                 } catch (error) {
                     console.error('初始化記憶卡頁面失敗:', error);
                 }

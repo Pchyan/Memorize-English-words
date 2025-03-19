@@ -40,6 +40,8 @@ async function initFlashcards() {
         return;
     }
     
+    console.log('初始化記憶卡功能...');
+    
     // 確保資料庫已初始化
     try {
         if (!window.db) {
@@ -57,11 +59,15 @@ async function initFlashcards() {
     await loadCardData();
     
     // 記憶卡點擊事件 - 翻轉
-    const flashcard = document.querySelector('.flashcard');
+    const flashcard = document.getElementById('mainFlashcard');
     if (flashcard) {
-        flashcard.addEventListener('click', () => {
-            flashcard.classList.toggle('flipped');
-        });
+        // 移除現有的事件監聽器以防重複
+        flashcard.removeEventListener('click', flipCard);
+        // 添加新的事件監聽器
+        flashcard.addEventListener('click', flipCard);
+        console.log('已為記憶卡添加點擊事件監聽器');
+    } else {
+        console.error('找不到記憶卡元素');
     }
     
     // 導航按鈕
@@ -69,17 +75,23 @@ async function initFlashcards() {
     const nextCardBtn = document.getElementById('nextCardBtn');
     
     if (prevCardBtn) {
-        prevCardBtn.addEventListener('click', (e) => {
-            e.stopPropagation(); // 防止觸發記憶卡翻轉
-            showPreviousCard();
-        });
+        // 移除現有的事件監聽器以防重複
+        prevCardBtn.removeEventListener('click', prevCardHandler);
+        // 添加新的事件監聽器
+        prevCardBtn.addEventListener('click', prevCardHandler);
+        console.log('已為上一張按鈕添加點擊事件監聽器');
+    } else {
+        console.error('找不到上一張按鈕元素');
     }
     
     if (nextCardBtn) {
-        nextCardBtn.addEventListener('click', (e) => {
-            e.stopPropagation(); // 防止觸發記憶卡翻轉
-            showNextCard();
-        });
+        // 移除現有的事件監聽器以防重複
+        nextCardBtn.removeEventListener('click', nextCardHandler);
+        // 添加新的事件監聽器
+        nextCardBtn.addEventListener('click', nextCardHandler);
+        console.log('已為下一張按鈕添加點擊事件監聽器');
+    } else {
+        console.error('找不到下一張按鈕元素');
     }
     
     // 自動播放按鈕
@@ -109,6 +121,17 @@ async function initFlashcards() {
     
     // 學習工具按鈕
     initLearningTools();
+}
+
+/**
+ * 翻轉記憶卡的事件處理函數
+ * @param {Event} event - 點擊事件
+ */
+function flipCard(event) {
+    console.log('記憶卡被點擊，準備翻轉');
+    const flashcard = event.currentTarget;
+    flashcard.classList.toggle('flipped');
+    console.log('記憶卡翻轉狀態已切換:', flashcard.classList.contains('flipped'));
 }
 
 /**
@@ -191,29 +214,36 @@ async function loadCardData(deck = 'all') {
         
         console.log(`載入的單字數量: ${words.length}`);
     
-    // 如果沒有單字，顯示提示
+        // 如果沒有單字，顯示提示
         if (words.length === 0) {
-        cards = [{
-            id: 0,
-            word: '沒有單字',
-            phonetic: '',
-            meaning: '這個詞彙組中沒有單字',
-            partOfSpeech: '',
-            definition: '請添加單字或選擇另一個詞彙組',
-            examples: []
-        }];
+            cards = [{
+                id: 0,
+                word: '沒有單字',
+                phonetic: '',
+                meaning: '這個詞彙組中沒有單字',
+                partOfSpeech: '',
+                definition: '請添加單字或選擇另一個詞彙組',
+                examples: []
+            }];
+            console.log('沒有找到單字，顯示提示卡片');
         } else {
             cards = words;
-    }
+            console.log('成功載入單字數據，卡片數量:', cards.length);
+        }
     
-    // 重置當前索引
-    currentCardIndex = 0;
-    
-    // 顯示第一張卡片
-    showCard(currentCardIndex);
-    
-    // 更新計數器
-    updateCardCounter();
+        // 重置當前索引
+        currentCardIndex = 0;
+        console.log('重置當前索引為 0');
+        
+        // 顯示第一張卡片
+        showCard(currentCardIndex);
+        
+        // 更新計數器
+        updateCardCounter();
+        
+        // 確保導航按鈕正確綁定
+        ensureNavigationButtons();
+        
     } catch (error) {
         console.error('載入記憶卡數據失敗:', error);
         
@@ -231,7 +261,32 @@ async function loadCardData(deck = 'all') {
         // 重置當前索引並顯示錯誤卡片
         currentCardIndex = 0;
         showCard(currentCardIndex);
-    updateCardCounter();
+        updateCardCounter();
+    }
+}
+
+/**
+ * 確保導航按鈕正確綁定
+ */
+function ensureNavigationButtons() {
+    // 檢查並綁定導航按鈕
+    const prevCardBtn = document.getElementById('prevCardBtn');
+    const nextCardBtn = document.getElementById('nextCardBtn');
+    
+    if (prevCardBtn) {
+        // 移除現有的事件監聽器以防重複
+        prevCardBtn.removeEventListener('click', prevCardHandler);
+        // 添加新的事件監聽器
+        prevCardBtn.addEventListener('click', prevCardHandler);
+        console.log('已重新綁定上一張按鈕事件');
+    }
+    
+    if (nextCardBtn) {
+        // 移除現有的事件監聽器以防重複
+        nextCardBtn.removeEventListener('click', nextCardHandler);
+        // 添加新的事件監聽器
+        nextCardBtn.addEventListener('click', nextCardHandler);
+        console.log('已重新綁定下一張按鈕事件');
     }
 }
 
@@ -240,92 +295,118 @@ async function loadCardData(deck = 'all') {
  * @param {number} index - 卡片索引
  */
 function showCard(index) {
+    console.log(`開始顯示卡片，索引: ${index}，卡片總數: ${cards.length}`);
+    
     if (cards.length === 0 || index < 0 || index >= cards.length) {
         console.error('無效的卡片索引或沒有卡片');
         return;
     }
     
     const card = cards[index];
-    console.log('顯示卡片:', card);
+    console.log('即將顯示的卡片:', card);
     
-    // 更新前面
-    const wordFrontElem = document.getElementById('wordFront');
-    if (wordFrontElem) {
-        wordFrontElem.textContent = card.word;
-    } else {
-        console.error('找不到 wordFront 元素');
+    // 檢查卡片數據的完整性
+    if (!card || !card.word) {
+        console.error('卡片數據不完整');
+        return;
     }
     
-    const phoneticElem = document.querySelector('.phonetic');
-    if (phoneticElem) {
-        phoneticElem.textContent = card.phonetic || '';
-    }
-    
-    // 更新背面
-    const wordBackElem = document.getElementById('wordBack');
-    if (wordBackElem) {
-        wordBackElem.textContent = card.meaning;
-    } else {
-        console.error('找不到 wordBack 元素');
-    }
-    
-    const partOfSpeech = document.querySelector('.part-of-speech');
-    if (partOfSpeech) {
-        partOfSpeech.textContent = translatePartOfSpeech(card.partOfSpeech);
-    }
-    
-    const definition = document.querySelector('.definition');
-    if (definition) {
-        definition.textContent = card.definition || '';
-    }
-    
-    // 更新例句
-    const examplesContainer = document.querySelector('.examples');
-    if (examplesContainer) {
-        // 首先清空現有例句
-        const examplesHeader = examplesContainer.querySelector('h4');
-        if (examplesHeader) {
-            examplesContainer.innerHTML = '';
-            examplesContainer.appendChild(examplesHeader);
-            
-            // 添加新例句
-            if (card.examples && card.examples.length > 0) {
-                card.examples.forEach(example => {
-                    const exampleElem = document.createElement('p');
-                    exampleElem.textContent = example;
-                    examplesContainer.appendChild(exampleElem);
-                });
+    try {
+        // 更新前面
+        const wordFrontElem = document.getElementById('wordFront');
+        if (wordFrontElem) {
+            wordFrontElem.textContent = card.word;
+            console.log('更新了卡片正面的單字:', card.word);
+        } else {
+            console.error('找不到 wordFront 元素');
+            return;
+        }
+        
+        const phoneticElem = document.querySelector('.phonetic');
+        if (phoneticElem) {
+            phoneticElem.textContent = card.phonetic || '';
+            console.log('更新了音標:', card.phonetic);
+        }
+        
+        // 更新背面
+        const wordBackElem = document.getElementById('wordBack');
+        if (wordBackElem) {
+            wordBackElem.textContent = card.meaning;
+            console.log('更新了卡片背面的意思:', card.meaning);
+        } else {
+            console.error('找不到 wordBack 元素');
+            return;
+        }
+        
+        const partOfSpeech = document.querySelector('.part-of-speech');
+        if (partOfSpeech) {
+            partOfSpeech.textContent = translatePartOfSpeech(card.partOfSpeech);
+        }
+        
+        const definition = document.querySelector('.definition');
+        if (definition) {
+            definition.textContent = card.definition || '';
+        }
+        
+        // 更新例句
+        const examplesContainer = document.querySelector('.examples');
+        if (examplesContainer) {
+            // 首先清空現有例句
+            const examplesHeader = examplesContainer.querySelector('h4');
+            if (examplesHeader) {
+                examplesContainer.innerHTML = '';
+                examplesContainer.appendChild(examplesHeader);
+                
+                // 添加新例句
+                if (card.examples && card.examples.length > 0) {
+                    card.examples.forEach(example => {
+                        const exampleElem = document.createElement('p');
+                        exampleElem.textContent = example;
+                        examplesContainer.appendChild(exampleElem);
+                    });
+                    console.log('更新了例句，數量:', card.examples.length);
+                } else {
+                    const noExampleElem = document.createElement('p');
+                    noExampleElem.textContent = '沒有例句';
+                    examplesContainer.appendChild(noExampleElem);
+                    console.log('沒有例句可顯示');
+                }
             } else {
-                const noExampleElem = document.createElement('p');
-                noExampleElem.textContent = '沒有例句';
-                examplesContainer.appendChild(noExampleElem);
+                console.error('找不到例句標題元素');
             }
         } else {
-            console.error('找不到例句標題元素');
+            console.error('找不到例句容器元素');
         }
-    } else {
-        console.error('找不到例句容器元素');
-    }
-    
-    // 確保卡片不是翻轉狀態
-    const flashcard = document.querySelector('.flashcard');
-    if (flashcard && flashcard.classList.contains('flipped')) {
-        flashcard.classList.remove('flipped');
-    }
-    
-    // 更新學習工具面板中的單字
-    updateLearningToolsWord(card.word);
-    
-    // 更新聯想文本區域
-    const assocInput = document.getElementById('assocInput');
-    if (assocInput) {
-        assocInput.value = card.associations || '';
-    }
-    
-    // 檢查聯想面板是否處於活動狀態，如果是則更新聯想面板內容
-    const associationPanel = document.getElementById('associationPanel');
-    if (associationPanel && associationPanel.classList.contains('active')) {
-        updateAssociationPanel();
+        
+        // 確保卡片不是翻轉狀態
+        const flashcard = document.getElementById('mainFlashcard');
+        if (flashcard) {
+            // 直接移除 flipped 類別，而不是檢查它是否存在
+            flashcard.classList.remove('flipped');
+            console.log('重置記憶卡翻轉狀態');
+        } else {
+            console.error('找不到記憶卡元素，無法重置翻轉狀態');
+            return;
+        }
+        
+        // 更新學習工具面板中的單字
+        updateLearningToolsWord(card.word);
+        
+        // 更新聯想文本區域
+        const assocInput = document.getElementById('assocInput');
+        if (assocInput) {
+            assocInput.value = card.associations || '';
+        }
+        
+        // 檢查聯想面板是否處於活動狀態，如果是則更新聯想面板內容
+        const associationPanel = document.getElementById('associationPanel');
+        if (associationPanel && associationPanel.classList.contains('active')) {
+            updateAssociationPanel();
+        }
+        
+        console.log(`卡片索引 ${index} 顯示完成`);
+    } catch (error) {
+        console.error('顯示卡片時發生錯誤:', error);
     }
 }
 
@@ -351,13 +432,44 @@ function updateLearningToolsWord(word) {
 }
 
 /**
+ * 上一張卡片按鈕的事件處理函數
+ * @param {Event} e - 事件對象
+ */
+function prevCardHandler(e) {
+    console.log('點擊了上一張卡片按鈕');
+    e.stopPropagation(); // 防止觸發記憶卡翻轉
+    showPreviousCard();
+}
+
+/**
+ * 下一張卡片按鈕的事件處理函數
+ * @param {Event} e - 事件對象
+ */
+function nextCardHandler(e) {
+    console.log('點擊了下一張卡片按鈕');
+    e.stopPropagation(); // 防止觸發記憶卡翻轉
+    showNextCard();
+}
+
+/**
  * 顯示下一張卡片
  */
 function showNextCard() {
-    if (cards.length === 0) return;
+    console.log('顯示下一張卡片，目前索引:', currentCardIndex, '卡片總數:', cards.length);
     
+    if (cards.length === 0) {
+        console.error('沒有卡片可顯示');
+        return;
+    }
+    
+    // 計算下一張卡片的索引
     currentCardIndex = (currentCardIndex + 1) % cards.length;
+    console.log('切換到新索引:', currentCardIndex);
+    
+    // 顯示卡片
     showCard(currentCardIndex);
+    
+    // 更新計數器
     updateCardCounter();
 }
 
@@ -365,10 +477,21 @@ function showNextCard() {
  * 顯示上一張卡片
  */
 function showPreviousCard() {
-    if (cards.length === 0) return;
+    console.log('顯示上一張卡片，目前索引:', currentCardIndex, '卡片總數:', cards.length);
     
+    if (cards.length === 0) {
+        console.error('沒有卡片可顯示');
+        return;
+    }
+    
+    // 計算上一張卡片的索引
     currentCardIndex = (currentCardIndex - 1 + cards.length) % cards.length;
+    console.log('切換到新索引:', currentCardIndex);
+    
+    // 顯示卡片
     showCard(currentCardIndex);
+    
+    // 更新計數器
     updateCardCounter();
 }
 
@@ -376,9 +499,15 @@ function showPreviousCard() {
  * 更新卡片計數器
  */
 function updateCardCounter() {
+    console.log('更新卡片計數器，當前索引:', currentCardIndex, '總卡片數:', cards.length);
+    
     const counterElem = document.querySelector('.card-counter');
     if (counterElem && cards.length > 0) {
-        counterElem.textContent = `${currentCardIndex + 1} / ${cards.length}`;
+        const counterText = `${currentCardIndex + 1} / ${cards.length}`;
+        counterElem.textContent = counterText;
+        console.log('卡片計數器更新為:', counterText);
+    } else {
+        console.error('找不到計數器元素或沒有卡片');
     }
 }
 
@@ -393,17 +522,36 @@ function toggleAutoPlay() {
         clearInterval(autoPlayTimer);
         isAutoPlaying = false;
         autoPlayBtn.innerHTML = '<i class="fas fa-play"></i> 自動播放';
+        console.log('自動播放已停止');
     } else {
         // 開始自動播放
         isAutoPlaying = true;
         autoPlayBtn.innerHTML = '<i class="fas fa-pause"></i> 暫停播放';
+        console.log('自動播放已開始');
+        
+        // 確保卡片是正面朝上的狀態開始
+        const flashcard = document.getElementById('mainFlashcard');
+        if (flashcard && flashcard.classList.contains('flipped')) {
+            flashcard.classList.remove('flipped');
+        }
         
         // 先顯示正面5秒，然後翻轉到背面，再等5秒，然後顯示下一張
         autoPlayTimer = setInterval(() => {
-            const flashcard = document.querySelector('.flashcard');
+            const flashcard = document.getElementById('mainFlashcard');
+            
+            if (!flashcard) {
+                console.error('找不到記憶卡元素，無法執行自動播放');
+                clearInterval(autoPlayTimer);
+                isAutoPlaying = false;
+                if (autoPlayBtn) {
+                    autoPlayBtn.innerHTML = '<i class="fas fa-play"></i> 自動播放';
+                }
+                return;
+            }
             
             if (!flashcard.classList.contains('flipped')) {
                 // 如果是正面，翻轉到背面
+                console.log('自動播放：正面翻轉到背面');
                 flashcard.classList.add('flipped');
                 // 發音
                 const word = document.getElementById('wordFront').textContent;
@@ -412,6 +560,7 @@ function toggleAutoPlay() {
                 }
             } else {
                 // 如果是背面，翻轉到正面並顯示下一張
+                console.log('自動播放：背面翻轉到下一張卡片的正面');
                 flashcard.classList.remove('flipped');
                 showNextCard();
             }
