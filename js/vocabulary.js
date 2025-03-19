@@ -1608,7 +1608,7 @@ async function viewWordDetails(wordId) {
                     <div class="header-info">
                         <div class="phonetic-container">
                             ${word.phonetic ? `<div class="phonetic">${word.phonetic}</div>` : '<div class="phonetic">尚無音標</div>'}
-                            <button class="btn secondary fetch-phonetic-btn" data-word="${word.word}" data-id="${word.id}" title="從劍橋詞典獲取音標">
+                            <button class="btn secondary fetch-phonetic-btn" data-word="${word.word}" data-id="${word.id}" title="使用全部音標獲取的方法">
                                 <i class="fas fa-sync-alt"></i> 獲取音標
                             </button>
             </div>
@@ -1657,10 +1657,37 @@ async function viewWordDetails(wordId) {
                     fetchPhoneticBtn.disabled = true;
                     fetchPhoneticBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 獲取中...';
                     
-                    const phonetic = await fetchPhoneticFromCambridge(wordText);
+                    // 使用全部音標獲取的方法獲取音標
+                    const phonetic = await getPhoneticFromFreeDictionary(wordText);
                     
                     if (phonetic) {
+                        // 更新單字的音標
                         await updateWordPhonetic(wordId, phonetic);
+                        
+                        // 更新頁面上的音標顯示
+                        const phoneticContainer = detailsContent.querySelector('.phonetic');
+                        if (phoneticContainer) {
+                            phoneticContainer.textContent = phonetic;
+                        }
+                        
+                        showNotification(`成功獲取音標: ${phonetic}`, 'success');
+                    } else {
+                        // 如果主要方法失敗，嘗試使用舊方法
+                        const backupPhonetic = await fetchPhoneticFromCambridge(wordText);
+                        
+                        if (backupPhonetic) {
+                            await updateWordPhonetic(wordId, backupPhonetic);
+                            
+                            // 更新頁面上的音標顯示
+                            const phoneticContainer = detailsContent.querySelector('.phonetic');
+                            if (phoneticContainer) {
+                                phoneticContainer.textContent = backupPhonetic;
+                            }
+                            
+                            showNotification(`使用備用方法獲取音標: ${backupPhonetic}`, 'success');
+                        } else {
+                            showNotification('無法獲取音標，請手動輸入', 'warning');
+                        }
                     }
                 } catch (error) {
                     console.error('獲取音標過程中發生錯誤:', error);
