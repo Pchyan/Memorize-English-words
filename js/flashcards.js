@@ -1001,26 +1001,27 @@ function updateSynonymsPanel() {
     const card = cards[currentCardIndex];
     console.log('當前單字:', card.word);
     
-    // 如果是示例單字 "example"，提供特定的同義詞和相關詞彙
-    let synonyms = [];
-    let relatedWords = [];
+    // 準備同義詞和反義詞資料
+    let synonyms = card.synonyms || [];
+    let antonyms = card.antonyms || [];
     
-    if (card.word.toLowerCase() === 'example') {
-        synonyms = ['instance', 'sample', 'illustration', 'case'];
-        relatedWords = ['model', 'pattern', 'template', 'specimen', 'paradigm'];
-    } else if (card.word.toLowerCase() === 'apple') {
-        synonyms = ['fruit', 'pomme'];
-        relatedWords = ['pear', 'orange', 'fruit', 'tree'];
-    } else {
-        // 使用卡片中的同義詞和相關詞彙（如果有）
-        synonyms = card.synonyms || [];
-        relatedWords = card.relatedWords || [];
-    }
+    console.log('單字同義詞:', synonyms);
+    console.log('單字反義詞:', antonyms);
     
     // 更新同義詞
-    const synonymsSection = document.querySelector('.synonyms-section .word-pills');
+    const synonymsSection = document.querySelector('.synonyms-section');
     if (synonymsSection) {
         synonymsSection.innerHTML = '';
+        
+        // 添加標題
+        const title = document.createElement('h4');
+        title.innerHTML = '同義詞：';
+        synonymsSection.appendChild(title);
+        
+        // 添加同義詞容器
+        const pillsContainer = document.createElement('div');
+        pillsContainer.className = 'word-pills';
+        synonymsSection.appendChild(pillsContainer);
         
         if (synonyms.length > 0) {
             synonyms.forEach(synonym => {
@@ -1039,27 +1040,58 @@ function updateSynonymsPanel() {
                     });
                 }
                 
-                synonymsSection.appendChild(pill);
+                pillsContainer.appendChild(pill);
             });
         } else {
             const noPill = document.createElement('span');
             noPill.textContent = '沒有同義詞';
-            synonymsSection.appendChild(noPill);
+            pillsContainer.appendChild(noPill);
         }
+        
+        // 添加生成按鈕
+        const buttonContainer = document.createElement('div');
+        buttonContainer.className = 'ai-button-container';
+        
+        const generateButton = document.createElement('button');
+        generateButton.className = 'ai-generate-btn';
+        generateButton.innerHTML = `
+            <div class="btn-content">
+                <i class="fas fa-magic"></i>
+                <span class="btn-text">使用 AI 生成同義詞與反義詞</span>
+                <div class="btn-shine"></div>
+            </div>
+        `;
+        generateButton.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            await generateAISynonyms(card);
+        });
+        
+        buttonContainer.appendChild(generateButton);
+        synonymsSection.appendChild(buttonContainer);
     } else {
         console.error('找不到同義詞容器');
     }
     
-    // 更新相關詞彙
-    const relatedSection = document.querySelector('.related-words-section .word-pills');
+    // 更新反義詞
+    const relatedSection = document.querySelector('.related-words-section');
     if (relatedSection) {
         relatedSection.innerHTML = '';
         
-        if (relatedWords.length > 0) {
-            relatedWords.forEach(related => {
+        // 添加標題
+        const title = document.createElement('h4');
+        title.innerHTML = '反義詞：';
+        relatedSection.appendChild(title);
+        
+        // 添加反義詞容器
+        const pillsContainer = document.createElement('div');
+        pillsContainer.className = 'word-pills';
+        relatedSection.appendChild(pillsContainer);
+        
+        if (antonyms.length > 0) {
+            antonyms.forEach(antonym => {
                 const pill = document.createElement('span');
                 pill.className = 'word-pill';
-                pill.innerHTML = `${related} <i class="fas fa-volume-up"></i>`;
+                pill.innerHTML = `${antonym} <i class="fas fa-volume-up"></i>`;
                 
                 // 添加發音事件
                 const icon = pill.querySelector('i');
@@ -1067,26 +1099,122 @@ function updateSynonymsPanel() {
                     icon.addEventListener('click', (e) => {
                         e.stopPropagation();
                         e.preventDefault();
-                        console.log('發音相關詞彙:', related);
-                        pronounceWord(related);
+                        console.log('發音反義詞:', antonym);
+                        pronounceWord(antonym);
                     });
                 }
                 
-                relatedSection.appendChild(pill);
+                pillsContainer.appendChild(pill);
             });
         } else {
             const noPill = document.createElement('span');
-            noPill.textContent = '沒有相關詞彙';
-            relatedSection.appendChild(noPill);
+            noPill.textContent = '沒有反義詞';
+            pillsContainer.appendChild(noPill);
+        }
+        
+        // 如果已經有同義詞和反義詞，顯示重新生成按鈕
+        if (synonyms.length > 0 || antonyms.length > 0) {
+            const regenerateContainer = document.createElement('div');
+            regenerateContainer.className = 'regenerate-container';
+            
+            const regenerateBtn = document.createElement('button');
+            regenerateBtn.className = 'regenerate-btn';
+            regenerateBtn.innerHTML = '<i class="fas fa-sync-alt"></i> 重新產生同義詞與反義詞';
+            regenerateBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await generateAISynonyms(card);
+            });
+            
+            regenerateContainer.appendChild(regenerateBtn);
+            relatedSection.appendChild(regenerateContainer);
         }
     } else {
-        console.error('找不到相關詞彙容器');
+        console.error('找不到反義詞容器');
     }
     
     // 更新詞彙關聯圖
     const mapContainer = document.querySelector('.map-container');
     if (mapContainer) {
-        mapContainer.innerHTML = '<div class="placeholder-map">詞彙關聯圖將在這裡顯示</div>';
+        mapContainer.innerHTML = '';
+        
+        if (synonyms.length > 0 || antonyms.length > 0) {
+            // 繪製簡單的關聯圖
+            const mapTitle = document.createElement('h4');
+            mapTitle.innerHTML = '詞彙關聯圖：';
+            mapContainer.appendChild(mapTitle);
+            
+            const svgContainer = document.createElement('div');
+            svgContainer.className = 'svg-container';
+            svgContainer.innerHTML = `
+                <svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+                    <g class="word-map">
+                        <!-- 中心單字 -->
+                        <circle cx="200" cy="150" r="50" class="center-word" />
+                        <text x="200" y="155" text-anchor="middle" class="center-text">${card.word}</text>
+                        
+                        <!-- 同義詞 -->
+                        ${synonyms.slice(0, 5).map((syn, i, arr) => {
+                            const angle = (i / arr.length) * Math.PI - Math.PI/2;
+                            const x = 200 + Math.cos(angle) * 100;
+                            const y = 150 + Math.sin(angle) * 100;
+                            return `
+                                <circle cx="${x}" cy="${y}" r="30" class="synonym-word" />
+                                <text x="${x}" y="${y+5}" text-anchor="middle" class="synonym-text">${syn}</text>
+                                <line x1="200" y1="150" x2="${x}" y2="${y}" class="synonym-line" />
+                            `;
+                        }).join('')}
+                        
+                        <!-- 反義詞 -->
+                        ${antonyms.slice(0, 3).map((ant, i, arr) => {
+                            const angle = (i / arr.length) * Math.PI + Math.PI/2;
+                            const x = 200 + Math.cos(angle) * 100;
+                            const y = 150 + Math.sin(angle) * 100;
+                            return `
+                                <circle cx="${x}" cy="${y}" r="30" class="antonym-word" />
+                                <text x="${x}" y="${y+5}" text-anchor="middle" class="antonym-text">${ant}</text>
+                                <line x1="200" y1="150" x2="${x}" y2="${y}" class="antonym-line" />
+                            `;
+                        }).join('')}
+                    </g>
+                </svg>
+            `;
+            mapContainer.appendChild(svgContainer);
+            
+            // 添加 CSS 樣式
+            const style = document.createElement('style');
+            style.textContent = `
+                .svg-container {
+                    width: 100%;
+                    height: 300px;
+                }
+                .center-word {
+                    fill: #4285f4;
+                }
+                .synonym-word {
+                    fill: #34a853;
+                }
+                .antonym-word {
+                    fill: #ea4335;
+                }
+                .center-text, .synonym-text, .antonym-text {
+                    fill: white;
+                    font-size: 14px;
+                    font-weight: bold;
+                }
+                .synonym-line {
+                    stroke: #34a853;
+                    stroke-width: 2;
+                }
+                .antonym-line {
+                    stroke: #ea4335;
+                    stroke-width: 2;
+                    stroke-dasharray: 5;
+                }
+            `;
+            document.head.appendChild(style);
+        } else {
+            mapContainer.innerHTML = '<div class="placeholder-map">使用 AI 生成同義詞與反義詞後，詞彙關聯圖將在這裡顯示</div>';
+        }
     }
 }
 
@@ -2520,7 +2648,6 @@ async function generateFallbackContexts(card) {
                 console.log(`更新全局數據中 ID 為 ${wordId} 的單字常見用法`);
                 window.appData.vocabulary[vocabIndex].contexts = contexts;
                 
-                // 儲存到本地儲存
                 try {
                     localStorage.setItem('vocabMasterData', JSON.stringify(window.appData));
                     console.log('數據已直接保存到本地儲存');
@@ -2986,36 +3113,476 @@ async function generateFallbackContexts(card) {
 }
 
 // 保存到數據庫
-async function saveToDatabase(wordId, contexts) {
+async function saveToDatabase(wordId, data, fieldName = 'contexts') {
     try {
         // 首先獲取完整的單字數據，避免覆蓋其他屬性
         let completeWordData;
         try {
             completeWordData = await window.db.getWordById(wordId);
-            console.log('從資料庫獲取完整單字數據:', completeWordData);
+            console.log(`從資料庫獲取完整單字數據 (ID: ${wordId}):`, completeWordData);
         } catch (getWordError) {
             console.warn('無法從資料庫獲取完整單字數據，將使用當前卡片數據:', getWordError);
             completeWordData = card;
         }
         
-        // 準備更新對象 - 只更新 contexts 欄位，保留其他欄位不變
+        // 準備更新對象 - 只更新指定欄位，保留其他欄位不變
         const updatedWord = {
             ...completeWordData,  // 保留所有現有屬性
             id: wordId,
-            contexts: contexts,
             updatedAt: new Date().toISOString()
         };
+        
+        // 根據欄位名稱更新不同的數據
+        updatedWord[fieldName] = data;
         
         // 確保保留基本屬性
         updatedWord.word = updatedWord.word || card.word;
         updatedWord.meaning = updatedWord.meaning || card.meaning;
         updatedWord.partOfSpeech = updatedWord.partOfSpeech || card.partOfSpeech;
         
-        console.log('正在更新資料庫中的常見用法數據:', updatedWord);
+        console.log(`正在更新資料庫中的 ${fieldName} 數據:`, updatedWord);
         await window.db.updateWord(updatedWord);
-        console.log('資料庫中的常見用法數據已更新');
+        console.log(`資料庫中的 ${fieldName} 數據已更新`);
     } catch (error) {
-        console.error('保存常見用法到數據庫時出錯:', error);
+        console.error(`保存 ${fieldName} 到數據庫時出錯:`, error);
         alert('保存失敗：' + error.message);
     }
+}
+
+/**
+ * 使用 Google Gemini API 生成單字的同義詞和反義詞
+ * @param {Object} card - 當前單字卡片
+ */
+async function generateAISynonyms(card) {
+    if (!card || !card.word) {
+        console.error('無法生成同義詞與反義詞：無效的卡片數據');
+        return;
+    }
+    
+    const synonymsSection = document.querySelector('.synonyms-section');
+    const relatedSection = document.querySelector('.related-words-section');
+    
+    if (!synonymsSection || !relatedSection) {
+        console.error('找不到同義詞或相關詞彙容器');
+        return;
+    }
+    
+    // 檢查 API 密鑰
+    const API_KEY = getGeminiApiKey();
+    if (!API_KEY) {
+        synonymsSection.innerHTML = '<div class="loading-suggestion error">請先在首頁設置 Google Gemini API 密鑰</div>';
+        return;
+    }
+    
+    // 顯示加載中
+    synonymsSection.innerHTML = '<div class="loading-suggestion">正在生成同義詞...</div>';
+    relatedSection.innerHTML = '<div class="loading-suggestion">正在生成反義詞...</div>';
+    
+    try {
+        console.log('開始為單字生成同義詞與反義詞:', card.word);
+        
+        // 使用 Gemini API 生成同義詞和反義詞
+        const result = await getAISynonyms(card);
+        
+        if (result && result.synonyms && result.antonyms) {
+            console.log('成功獲取同義詞與反義詞：', result);
+            
+            // 更新卡片數據
+            card.synonyms = result.synonyms;
+            card.antonyms = result.antonyms;
+            
+            // 確保在 cards 數組中也更新對應的單字
+            if (cards && currentCardIndex >= 0 && currentCardIndex < cards.length) {
+                console.log(`更新當前卡片索引 ${currentCardIndex} 的同義詞與反義詞欄位`);
+                cards[currentCardIndex].synonyms = [...result.synonyms]; // 使用展開運算符創建深拷貝
+                cards[currentCardIndex].antonyms = [...result.antonyms]; // 使用展開運算符創建深拷貝
+            }
+            
+            // 保存到資料庫
+            console.log(`保存同義詞到數據庫 - 單字ID: ${card.id}`);
+            await saveToDatabase(card.id, result.synonyms, 'synonyms');
+            
+            console.log(`保存反義詞到數據庫 - 單字ID: ${card.id}`);
+            await saveToDatabase(card.id, result.antonyms, 'antonyms');
+            
+            // 更新全局數據和本地儲存
+            if (window.appData && window.appData.vocabulary) {
+                const wordId = card.id;
+                const vocabIndex = window.appData.vocabulary.findIndex(item => item.id === wordId);
+                
+                if (vocabIndex !== -1) {
+                    console.log(`更新全局數據中 ID 為 ${wordId} 的單字同義詞與反義詞`);
+                    window.appData.vocabulary[vocabIndex].synonyms = result.synonyms;
+                    window.appData.vocabulary[vocabIndex].antonyms = result.antonyms;
+                    
+                    try {
+                        localStorage.setItem('vocabMasterData', JSON.stringify(window.appData));
+                        console.log('數據已直接保存到本地儲存');
+                        showNotification('同義詞與反義詞已永久保存', 'success');
+                    } catch (error) {
+                        console.error('保存到本地儲存時出錯:', error);
+                        showNotification('保存失敗：' + error.message, 'error');
+                    }
+                }
+            }
+            
+            // 更新頁面顯示
+            updateSynonymsPanel();
+        } else {
+            console.warn('未能獲取同義詞與反義詞');
+            synonymsSection.innerHTML = `
+                <h4>同義詞：</h4>
+                <div class="loading-suggestion error">
+                    無法生成同義詞與反義詞，可能的原因：
+                    <ul>
+                        <li>API 密鑰無效或已過期</li>
+                        <li>API 請求超出限制</li>
+                        <li>網絡連接問題</li>
+                    </ul>
+                    <p>請檢查瀏覽器控制台獲取詳細錯誤信息</p>
+                </div>
+                <button class="ai-synonyms-btn"><i class="fas fa-robot"></i> 重試</button>
+            `;
+            
+            // 為重試按鈕添加事件監聽器
+            const retryBtn = synonymsSection.querySelector('.ai-synonyms-btn');
+            if (retryBtn) {
+                retryBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    await generateAISynonyms(card);
+                });
+            }
+        }
+    } catch (error) {
+        console.error('生成同義詞與反義詞時出錯:', error);
+        
+        // 檢查是否是配額耗盡錯誤
+        const isQuotaError = error.message && (
+            error.message.includes('429') || 
+            error.message.includes('RESOURCE_EXHAUSTED') || 
+            error.message.toLowerCase().includes('quota')
+        );
+        
+        if (isQuotaError) {
+            synonymsSection.innerHTML = `
+                <h4>同義詞：</h4>
+                <div class="loading-suggestion error">
+                    <strong>API 配額已用盡</strong>
+                    <p>您的 Google Gemini API 免費配額已用盡。可能的解決方法：</p>
+                    <ul>
+                        <li>等待 24 小時後再試（免費配額每天重置）</li>
+                        <li>使用不同的 API 密鑰</li>
+                        <li>升級到付費版 Google AI Studio</li>
+                    </ul>
+                </div>
+                <button class="ai-synonyms-fallback-btn"><i class="fas fa-database"></i> 使用備用方法</button>
+            `;
+            
+            // 為備用方法按鈕添加事件監聽器
+            const fallbackBtn = synonymsSection.querySelector('.ai-synonyms-fallback-btn');
+            if (fallbackBtn) {
+                fallbackBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    await generateFallbackSynonyms(card);
+                });
+            }
+        } else {
+            synonymsSection.innerHTML = `
+                <h4>同義詞：</h4>
+                <div class="loading-suggestion error">
+                    生成同義詞與反義詞時出錯：${error.message}
+                    <p>請檢查瀏覽器控制台獲取詳細錯誤信息</p>
+                </div>
+                <button class="ai-synonyms-btn"><i class="fas fa-robot"></i> 重試</button>
+            `;
+            
+            // 為重試按鈕添加事件監聽器
+            const retryBtn = synonymsSection.querySelector('.ai-synonyms-btn');
+            if (retryBtn) {
+                retryBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    await generateAISynonyms(card);
+                });
+            }
+        }
+    }
+}
+
+/**
+ * 使用 Google Gemini API 獲取單字的同義詞和反義詞
+ * @param {Object} card - 當前單字卡片
+ * @returns {Object} - 包含同義詞和反義詞的對象
+ */
+async function getAISynonyms(card) {
+    // 從 localStorage 獲取 API 密鑰
+    const API_KEY = getGeminiApiKey();
+    
+    console.log('API 密鑰狀態:', API_KEY ? '已設置' : '未設置');
+    
+    if (!API_KEY) {
+        console.warn('未設置 Gemini API 密鑰，無法使用 Gemini API 生成同義詞與反義詞');
+        return null;
+    }
+    
+    const word = card.word;
+    const meaning = card.meaning || '';
+    const partOfSpeech = card.partOfSpeech || '';
+    
+    console.log('準備為單字生成同義詞與反義詞:', word, '詞性:', partOfSpeech, '意思:', meaning);
+    
+    // 構建提示詞
+    const prompt = `
+    請為英文單字 "${word}" 生成同義詞和反義詞。
+    
+    單字資訊：
+    - 詞性：${partOfSpeech}
+    - 中文意思：${meaning}
+    
+    請生成以下內容：
+    1. 5-8 個同義詞
+    2. 3-5 個反義詞（如果適用）
+    
+    請以 JSON 格式回答，格式如下：
+    {
+      "synonyms": ["同義詞1", "同義詞2", ...],
+      "antonyms": ["反義詞1", "反義詞2", ...]
+    }
+    
+    請確保回答是有效的 JSON 格式，不要添加其他文字。如果缺乏適當的反義詞，請提供一個空陣列。
+    `;
+    
+    console.log('發送到 Gemini API 的提示詞:', prompt);
+    
+    try {
+        console.log('開始發送 API 請求...');
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${API_KEY}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                contents: [
+                    {
+                        parts: [
+                            {
+                                text: prompt
+                            }
+                        ]
+                    }
+                ],
+                generationConfig: {
+                    temperature: 0.7,
+                    topK: 40,
+                    topP: 0.95,
+                    maxOutputTokens: 1024,
+                }
+            })
+        });
+        
+        console.log('API 回應狀態:', response.status, response.statusText);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('API 錯誤詳情:', errorText);
+            throw new Error(`API 請求失敗: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log('Gemini API 完整回應:', data);
+        
+        // 檢查回應結構
+        if (!data.candidates || data.candidates.length === 0) {
+            console.error('API 回應中沒有 candidates 數組或為空');
+            return null;
+        }
+        
+        if (!data.candidates[0].content) {
+            console.error('API 回應中沒有 content 對象');
+            return null;
+        }
+        
+        if (!data.candidates[0].content.parts || data.candidates[0].content.parts.length === 0) {
+            console.error('API 回應中沒有 parts 數組或為空');
+            return null;
+        }
+        
+        const text = data.candidates[0].content.parts[0].text;
+        if (!text) {
+            console.error('API 回應中沒有文本內容');
+            return null;
+        }
+        
+        console.log('從 API 獲取的原始文本:', text);
+        
+        // 嘗試解析 JSON
+        try {
+            // 提取 JSON 部分（可能有額外文本）
+            const jsonMatch = text.match(/\{\s*"synonyms"\s*:.*"antonyms"\s*:.*\}/s);
+            if (jsonMatch) {
+                const jsonText = jsonMatch[0];
+                const result = JSON.parse(jsonText);
+                console.log('解析後的同義詞與反義詞:', result);
+                return result;
+            } else {
+                console.error('無法從回應中提取 JSON');
+                return null;
+            }
+        } catch (parseError) {
+            console.error('解析 JSON 時出錯:', parseError);
+            
+            // 嘗試手動解析
+            try {
+                // 使用正則表達式提取同義詞和反義詞
+                const synonymsMatch = text.match(/"synonyms"\s*:\s*\[(.*?)\]/s);
+                const antonymsMatch = text.match(/"antonyms"\s*:\s*\[(.*?)\]/s);
+                
+                const synonyms = [];
+                const antonyms = [];
+                
+                if (synonymsMatch && synonymsMatch[1]) {
+                    // 提取引號中的單詞
+                    const synonymsStr = synonymsMatch[1];
+                    const wordMatches = synonymsStr.match(/"([^"]*)"/g);
+                    
+                    if (wordMatches) {
+                        wordMatches.forEach(match => {
+                            synonyms.push(match.replace(/"/g, ''));
+                        });
+                    }
+                }
+                
+                if (antonymsMatch && antonymsMatch[1]) {
+                    // 提取引號中的單詞
+                    const antonymsStr = antonymsMatch[1];
+                    const wordMatches = antonymsStr.match(/"([^"]*)"/g);
+                    
+                    if (wordMatches) {
+                        wordMatches.forEach(match => {
+                            antonyms.push(match.replace(/"/g, ''));
+                        });
+                    }
+                }
+                
+                if (synonyms.length > 0 || antonyms.length > 0) {
+                    const result = {
+                        synonyms: synonyms,
+                        antonyms: antonyms
+                    };
+                    
+                    console.log('手動解析後的同義詞與反義詞:', result);
+                    return result;
+                } else {
+                    console.error('手動解析未找到同義詞和反義詞');
+                    return null;
+                }
+            } catch (manualError) {
+                console.error('手動解析時出錯:', manualError);
+                return null;
+            }
+        }
+    } catch (error) {
+        console.error('獲取同義詞與反義詞時出錯:', error);
+        throw error;
+    }
+}
+
+/**
+ * 使用本地方法生成單字的同義詞和反義詞
+ * @param {Object} card - 當前單字卡片
+ */
+async function generateFallbackSynonyms(card) {
+    if (!card || !card.word) {
+        console.error('無法生成同義詞與反義詞：無效的卡片數據');
+        return;
+    }
+    
+    const synonymsSection = document.querySelector('.synonyms-section');
+    const relatedSection = document.querySelector('.related-words-section');
+    
+    if (!synonymsSection || !relatedSection) {
+        console.error('找不到同義詞或相關詞彙容器');
+        return;
+    }
+    
+    // 顯示加載中
+    synonymsSection.innerHTML = '<div class="loading-suggestion">正在生成同義詞（備用方法）...</div>';
+    relatedSection.innerHTML = '<div class="loading-suggestion">正在生成反義詞（備用方法）...</div>';
+    
+    const word = card.word.toLowerCase();
+    
+    let synonyms = [];
+    let antonyms = [];
+    
+    // 為常見單字提供預設的同義詞和反義詞
+    if (word === 'good') {
+        synonyms = ['nice', 'excellent', 'fine', 'great', 'wonderful'];
+        antonyms = ['bad', 'poor', 'terrible', 'awful'];
+    } else if (word === 'bad') {
+        synonyms = ['poor', 'terrible', 'awful', 'horrible', 'dreadful'];
+        antonyms = ['good', 'excellent', 'fine', 'great'];
+    } else if (word === 'big') {
+        synonyms = ['large', 'huge', 'enormous', 'gigantic', 'massive'];
+        antonyms = ['small', 'tiny', 'little', 'minor'];
+    } else if (word === 'small') {
+        synonyms = ['tiny', 'little', 'minute', 'compact', 'petite'];
+        antonyms = ['big', 'large', 'huge', 'enormous'];
+    } else if (word === 'happy') {
+        synonyms = ['glad', 'joyful', 'cheerful', 'delighted', 'pleased'];
+        antonyms = ['sad', 'unhappy', 'miserable', 'depressed'];
+    } else if (word === 'sad') {
+        synonyms = ['unhappy', 'sorrowful', 'depressed', 'gloomy', 'downcast'];
+        antonyms = ['happy', 'joyful', 'cheerful', 'delighted'];
+    } else if (word === 'fast') {
+        synonyms = ['quick', 'rapid', 'swift', 'speedy', 'hasty'];
+        antonyms = ['slow', 'sluggish', 'unhurried', 'leisurely'];
+    } else if (word === 'slow') {
+        synonyms = ['sluggish', 'unhurried', 'leisurely', 'gradual', 'plodding'];
+        antonyms = ['fast', 'quick', 'rapid', 'swift'];
+    } else {
+        // 為其他單字生成通用同義詞和反義詞
+        synonyms = [`similar to ${word}`, `like ${word}`, `comparable to ${word}`, `${word}-like`];
+        antonyms = [`unlike ${word}`, `opposite of ${word}`, `not ${word}`];
+    }
+    
+    // 更新卡片數據
+    card.synonyms = synonyms;
+    card.antonyms = antonyms;
+    
+    // 確保在 cards 數組中也更新對應的單字
+    if (cards && currentCardIndex >= 0 && currentCardIndex < cards.length) {
+        console.log(`更新當前卡片索引 ${currentCardIndex} 的同義詞與反義詞欄位`);
+        cards[currentCardIndex].synonyms = [...synonyms]; // 使用展開運算符創建深拷貝
+        cards[currentCardIndex].antonyms = [...antonyms]; // 使用展開運算符創建深拷貝
+    }
+    
+    // 保存到資料庫
+    console.log(`保存同義詞到數據庫 - 單字ID: ${card.id}`);
+    await saveToDatabase(card.id, synonyms, 'synonyms');
+    
+    console.log(`保存反義詞到數據庫 - 單字ID: ${card.id}`);
+    await saveToDatabase(card.id, antonyms, 'antonyms');
+    
+    // 更新全局數據
+    if (window.appData && window.appData.vocabulary) {
+        const wordId = card.id;
+        const vocabIndex = window.appData.vocabulary.findIndex(item => item.id === wordId);
+        
+        if (vocabIndex !== -1) {
+            console.log(`更新全局數據中 ID 為 ${wordId} 的單字同義詞與反義詞`);
+            window.appData.vocabulary[vocabIndex].synonyms = synonyms;
+            window.appData.vocabulary[vocabIndex].antonyms = antonyms;
+            
+            try {
+                localStorage.setItem('vocabMasterData', JSON.stringify(window.appData));
+                console.log('數據已直接保存到本地儲存');
+                showNotification('同義詞與反義詞已永久保存', 'success');
+            } catch (error) {
+                console.error('保存到本地儲存時出錯:', error);
+                showNotification('保存失敗：' + error.message, 'error');
+            }
+        }
+    }
+    
+    // 更新頁面顯示
+    updateSynonymsPanel();
 }

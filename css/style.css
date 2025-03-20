@@ -1,0 +1,74 @@
+/* AI 生成按鈕樣式 */
+.ai-generate-btn {
+    position: relative;
+    width: 100%;
+    padding: 12px 24px;
+    margin: 15px 0;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    color: white;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(99, 102, 241, 0.2);
+}
+
+.ai-generate-btn .btn-content {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    z-index: 1;
+}
+
+.ai-generate-btn i {
+    font-size: 18px;
+}
+
+.ai-generate-btn .btn-shine {
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+        45deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.1) 50%,
+        transparent 100%
+    );
+    transform: rotate(45deg);
+    animation: shine 3s infinite;
+}
+
+.ai-generate-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(99, 102, 241, 0.3);
+    background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+}
+
+.ai-generate-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
+}
+
+@keyframes shine {
+    0% {
+        left: -50%;
+    }
+    100% {
+        left: 150%;
+    }
+}
+
+/* 按鈕容器樣式 */
+.ai-button-container {
+    width: 100%;
+    padding: 10px 0;
+    display: flex;
+    justify-content: center;
+} 
