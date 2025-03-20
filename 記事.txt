@@ -12,50 +12,11 @@ AIzaSyBJTy0EoemY0-zfUvpUNl3vOQleggT4l5Q
 
 問題:
 
-"記憶卡"頁面下方的"建立聯想"、"查看上下文"、"同義/反義詞" 功能點選沒有反應，不會出現相對應的頁面
+@Web 
+@codebase
+1.修正一下"練習測驗"的頁面，顯示很不正常。進入"練習測驗"時，預設不要有畫面，只要有"測驗類別"下拉選單及"詞彙表"下拉選單
+2."詞彙表"下拉選單要與"詞彙管理"的相同
+3.選擇"拼寫練習"時，畫面就只有"拼寫練習"，其他測驗不要出現。選擇其他測驗時也一樣。
 
-全面檢查程式碼，修改成導入國中基礎2005單字時，從basic2005.txt導入，移除database.裡的單字庫，以減小database.j的體積，其他地方所有的單字庫全移除
 
-
-============================================================================================
-用js寫一個程式可以從劍橋詞典(https://dictionary.cambridge.org/zht/ )取得指定單字的美式音標
-============================================================================================
-
-async function getCambridgePronunciation(word) {
-  try {
-    const url = `https://dictionary.cambridge.org/zht/${word}`;
-    const response = await fetch(url);
-    const html = await response.text();
-
-    // 使用正規表達式提取美式音標。
-    // 這裡的正規表達式更精確，考慮了不同的音標顯示方式。
-    const pronunciationRegex = /<div class="phonetics-us\.pron"\>(.*?)<\/div>/s;
-    const match = pronunciationRegex.exec(html);
-
-    if (match && match[1]) {
-      // 清理音標，移除多餘的空格和換行符
-      let pronunciation = match[1].trim();
-      pronunciation = pronunciation.replace(/\n/g, ''); // 移除換行符
-      return pronunciation;
-    } else {
-      return null; // 如果沒有找到音標，則返回 null
-    }
-  } catch (error) {
-    console.error("取得音標時發生錯誤:", error);
-    return null;
-  }
-}
-
-// 範例用法
-const word = "hello";
-getCambridgePronunciation(word)
-  .then(pronunciation => {
-    if (pronunciation) {
-      console.log(`${word} 的美式音標是: ${pronunciation}`);
-    } else {
-      console.log(`${word} 在劍橋詞典上沒有找到美式音標`);
-    }
-  });
-
-============================================================================================
-
+接下來修改 "選擇題測驗"，跟"建立聯想"功能一樣使用 Google Gemini API 完成 AI 生成選擇題。

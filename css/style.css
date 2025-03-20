@@ -71,4 +71,246 @@
     padding: 10px 0;
     display: flex;
     justify-content: center;
+}
+
+/* 練習測驗頁面樣式 */
+.practice-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.practice-mode {
+    display: none;
+}
+
+.practice-mode.active {
+    display: block;
+}
+
+.practice-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 24px;
+    margin-bottom: 20px;
+}
+
+.practice-question {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.practice-question h3 {
+    color: #333;
+    margin-bottom: 16px;
+}
+
+.meaning {
+    font-size: 24px;
+    font-weight: bold;
+    color: #4a5568;
+    margin: 12px 0;
+}
+
+.part-of-speech {
+    color: #718096;
+    font-style: italic;
+    margin-bottom: 12px;
+}
+
+.hint-section {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin: 16px 0;
+}
+
+.hint-btn {
+    padding: 8px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: white;
+    color: #4a5568;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.hint-btn:hover {
+    background: #f7fafc;
+    border-color: #cbd5e0;
+}
+
+.pronunciation-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    background: #4299e1;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.pronunciation-btn:hover {
+    background: #3182ce;
+}
+
+.phonetic-hint,
+.first-letter-hint {
+    color: #718096;
+    margin: 8px 0;
+    font-family: monospace;
+}
+
+.hidden {
+    display: none;
+}
+
+.practice-answer {
+    display: flex;
+    gap: 12px;
+    margin: 24px 0;
+}
+
+#spellingInput {
+    flex: 1;
+    padding: 12px;
+    border: 2px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 16px;
+}
+
+#spellingInput:focus {
+    border-color: #4299e1;
+    outline: none;
+}
+
+.feedback {
+    text-align: center;
+    padding: 12px;
+    margin: 16px 0;
+    border-radius: 6px;
+}
+
+.feedback.success {
+    background: #c6f6d5;
+    color: #2f855a;
+}
+
+.feedback.error {
+    background: #fed7d7;
+    color: #c53030;
+}
+
+.practice-navigation {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 24px;
+    margin-top: 24px;
+}
+
+.nav-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    background: #4a5568;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.nav-btn:hover {
+    background: #2d3748;
+}
+
+.nav-btn:disabled {
+    background: #cbd5e0;
+    cursor: not-allowed;
+}
+
+.progress-indicator {
+    font-size: 16px;
+    color: #4a5568;
+    font-weight: 500;
+}
+
+/* 控制區域樣式 */
+.controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.controls select {
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: white;
+    color: #4a5568;
+    min-width: 150px;
+}
+
+.controls select:focus {
+    border-color: #4299e1;
+    outline: none;
+}
+
+.controls button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    background: #4299e1;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.controls button:hover {
+    background: #3182ce;
+}
+
+/* 通知樣式 */
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 15px 25px;
+    border-radius: 8px;
+    font-size: 16px;
+    z-index: 9999;
+    display: none;
+    animation: slideIn 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.notification.success {
+    background-color: #48bb78;
+    color: white;
+}
+
+.notification.error {
+    background-color: #f56565;
+    color: white;
+}
+
+.notification.warning {
+    background-color: #ed8936;
+    color: white;
+}
+
+.notification.info {
+    background-color: #4299e1;
+    color: white;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
 } 
