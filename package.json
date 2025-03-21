@@ -1,0 +1,25 @@
+{
+    "app_name": "Memorize-English-words",
+    "main": "index.html",
+    "name": "Memorize-English-words",
+    "webexe_settings": {
+        "download_dir": "",
+        "force_download": false,
+        "nw_compression_level": 0,
+        "nw_version": "0.95.0",
+        "sdk_build": false,
+        "uncompressed_folder": false,
+        "windows-x32": true,
+        "windows-x64": true
+    },
+    "webkit": {},
+    "window": {
+        "frame": true,
+        "id": "Memorize-English-words",
+        "resizable": true,
+        "show": true,
+        "show_in_taskbar": true,
+        "title": "Memorize-English-words",
+        "visible": true
+    }
+}

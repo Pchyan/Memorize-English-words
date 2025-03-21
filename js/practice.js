@@ -256,9 +256,9 @@ function initStartPracticeButton() {
             return;
         }
         
-        currentPracticeType = practiceTypeSelect.value;
-        const selectedList = practiceListSelect.value;
-        
+            currentPracticeType = practiceTypeSelect.value;
+            const selectedList = practiceListSelect.value;
+            
         console.log(`選擇的練習類型: ${currentPracticeType}, 選擇的詞彙表: ${selectedList}`);
         
         // 顯示載入中狀態
@@ -272,24 +272,24 @@ function initStartPracticeButton() {
             
             if (success) {
                 console.log('詞彙載入成功，準備開始練習');
-                // 根據練習類型開始相應的練習
-                switch (currentPracticeType) {
-                    case 'spelling':
+            // 根據練習類型開始相應的練習
+            switch (currentPracticeType) {
+                case 'spelling':
                         console.log('啟動拼寫練習');
-                        startSpellingPractice();
-                        break;
-                    case 'multiple':
+                    startSpellingPractice();
+                    break;
+                case 'multiple':
                         console.log('啟動選擇題測驗');
-                        startMultipleChoicePractice();
-                        break;
-                    case 'matching':
+                    startMultipleChoicePractice();
+                    break;
+                case 'matching':
                         console.log('啟動配對遊戲');
-                        startMatchingGame();
-                        break;
-                    case 'fill':
+                    startMatchingGame();
+                    break;
+                case 'fill':
                         console.log('啟動填空練習');
-                        startFillInBlankPractice();
-                        break;
+                    startFillInBlankPractice();
+                    break;
                     default:
                         console.error(`未知的練習類型: ${currentPracticeType}`);
                         showNotification('不支持的練習類型', 'error');
@@ -626,6 +626,13 @@ function checkSpellingAnswer() {
         // 增加分數
         currentScore++;
         
+        // 記錄答對的單字索引
+        if (!window.practiceCorrectAnswers) {
+            window.practiceCorrectAnswers = [];
+        }
+        window.practiceCorrectAnswers.push(currentPracticeIndex);
+        console.log(`記錄答對單字: ${practiceWords[currentPracticeIndex].word}`);
+        
         // 禁用輸入框
         spellingInput.disabled = true;
         
@@ -789,8 +796,8 @@ function generateMultipleChoiceOptions(word) {
         const allMeanings = window.appData.vocabulary && window.appData.vocabulary.length > 0 
             ? window.appData.vocabulary.map(w => w.meaning) 
             : [];
-        
-        // 打亂所有意思
+    
+    // 打亂所有意思
         const shuffledMeanings = shuffleArray([...allMeanings]);
         
         // 首先添加練習詞彙中可用的不同選項
@@ -803,10 +810,10 @@ function generateMultipleChoiceOptions(word) {
         
         // 如果還需要更多選項，從所有詞彙中選擇
         if (wrongOptions.length < 3) {
-            for (const meaning of shuffledMeanings) {
-                if (meaning !== correctAnswer && !wrongOptions.includes(meaning)) {
-                    wrongOptions.push(meaning);
-                    if (wrongOptions.length === 3) break;
+    for (const meaning of shuffledMeanings) {
+        if (meaning !== correctAnswer && !wrongOptions.includes(meaning)) {
+            wrongOptions.push(meaning);
+            if (wrongOptions.length === 3) break;
                 }
             }
         }
@@ -861,6 +868,13 @@ function checkMultipleChoiceAnswer() {
         
         // 增加分數
         currentScore++;
+        
+        // 記錄答對的單字索引
+        if (!window.practiceCorrectAnswers) {
+            window.practiceCorrectAnswers = [];
+        }
+        window.practiceCorrectAnswers.push(currentPracticeIndex);
+        console.log(`記錄答對單字: ${practiceWords[currentPracticeIndex].word}`);
         
         // 禁用選項
         document.querySelectorAll('#multiplePractice input[name="answer"]').forEach(input => {
@@ -1193,6 +1207,13 @@ function checkFillAnswer() {
         // 增加分數
         currentScore++;
         
+        // 記錄答對的單字索引
+        if (!window.practiceCorrectAnswers) {
+            window.practiceCorrectAnswers = [];
+        }
+        window.practiceCorrectAnswers.push(currentPracticeIndex);
+        console.log(`記錄答對單字: ${practiceWords[currentPracticeIndex].word}`);
+        
         // 禁用輸入框
         fillBlank.disabled = true;
         
@@ -1231,6 +1252,14 @@ function startMatchingGame() {
     const matchingMode = document.getElementById('matchingPractice');
     if (matchingMode) {
         matchingMode.classList.add('active');
+    }
+    
+    // 重置全局記錄
+    if (window.practiceCorrectAnswers) {
+        window.practiceCorrectAnswers = [];
+    }
+    if (window.matchingCorrectWords) {
+        window.matchingCorrectWords = new Set();
     }
     
     // 初始化遊戲
@@ -1355,10 +1384,20 @@ function handleMatchingItemClick(e) {
             matchedPairs++;
             updateMatchedCount();
             
+            // 記錄成功匹配的單字ID
+            if (!window.matchingCorrectWords) {
+                window.matchingCorrectWords = new Set();
+            }
+            window.matchingCorrectWords.add(firstId);
+            console.log(`記錄配對成功單字ID: ${firstId}`);
+            
             // 檢查是否完成所有匹配
             if (matchedPairs === 4) {
                 // 停止計時器
                 clearInterval(matchingTimer);
+                
+                // 將匹配成功的單字ID轉換為索引並記錄到全局變數
+                updateMatchingCorrectAnswers();
                 
                 // 顯示完成訊息
                 alert('恭喜！您已完成所有配對。');
@@ -1379,6 +1418,32 @@ function handleMatchingItemClick(e) {
         
         firstSelected = null;
     }
+}
+
+/**
+ * 將匹配遊戲中的正確答案轉換為單字索引並記錄
+ */
+function updateMatchingCorrectAnswers() {
+    if (!window.matchingCorrectWords || !window.matchingCorrectWords.size) {
+        console.log('沒有記錄匹配正確的單字');
+        return;
+    }
+    
+    if (!window.practiceCorrectAnswers) {
+        window.practiceCorrectAnswers = [];
+    }
+    
+    // 將匹配成功的單字ID轉換為單字索引
+    for (let i = 0; i < practiceWords.length; i++) {
+        const word = practiceWords[i];
+        if (word && word.id && window.matchingCorrectWords.has(word.id)) {
+            window.practiceCorrectAnswers.push(i);
+            console.log(`配對遊戲記錄索引 ${i} 的單字 "${word.word}" 答對`);
+        }
+    }
+    
+    // 清空匹配記錄
+    window.matchingCorrectWords.clear();
 }
 
 /**
@@ -1546,9 +1611,20 @@ function showPracticeResult() {
         case 'fill':
             const percentage = Math.round((currentScore / practiceWords.length) * 100);
             message = `練習完成！\n您的得分是：${currentScore} / ${practiceWords.length} (${percentage}%)`;
+            
+            // 根據練習結果更新單字狀態
+            updateWordStatuses();
             break;
         case 'matching':
             message = `遊戲完成！\n您成功匹配了 ${matchedPairs} / 4 組`;
+            
+            // 如果配對遊戲有成功匹配，也更新單字狀態
+            if (matchedPairs > 0) {
+                // 確保將匹配成功的單字ID轉換為索引
+                updateMatchingCorrectAnswers();
+                // 更新單字狀態
+                updateWordStatuses();
+            }
             break;
     }
     
@@ -1575,6 +1651,136 @@ function showPracticeResult() {
     
     // 隱藏練習模式
     hideAllPracticeModes();
+}
+
+/**
+ * 根據練習表現更新單字狀態
+ * 規則:
+ * 1. "未學習"狀態答對→"學習中"
+ * 2. "學習中"狀態連續答對多次→"已掌握"
+ */
+async function updateWordStatuses() {
+    // 確保數據庫可用
+    if (!window.db || typeof window.db.updateWord !== 'function') {
+        console.warn('無法更新單字狀態：數據庫或updateWord函數不可用');
+        return;
+    }
+    
+    try {
+        // 獲取全局正確的單字索引
+        const correctWordIndices = getCorrectWordIndices();
+        if (!correctWordIndices || correctWordIndices.length === 0) {
+            console.log('沒有找到正確回答的單字');
+            return;
+        }
+        
+        console.log(`開始更新單字狀態，找到 ${correctWordIndices.length} 個正確答案`);
+        
+        // 遍歷所有正確回答的單字
+        for (const index of correctWordIndices) {
+            const word = practiceWords[index];
+            
+            // 檢查單字是否存在且有ID
+            if (!word || !word.id) {
+                console.warn(`單字不完整或缺少ID：`, word);
+                continue;
+            }
+            
+            // 獲取單字的當前狀態
+            let updateNeeded = false;
+            let newStatus = word.status;
+            
+            // 根據單字當前狀態決定是否更新
+            if (word.status === 'notLearned' || word.status === 'new') {
+                // 未學習→學習中
+                newStatus = 'learning';
+                updateNeeded = true;
+                console.log(`單字 "${word.word}" 從"未學習"升級到"學習中"`);
+            } else if (word.status === 'learning') {
+                // 學習中可能升級到已掌握
+                // 獲取該單字的練習記錄
+                const practiceRecord = word.practiceRecord || [];
+                
+                // 更新練習記錄
+                const newRecord = {
+                    date: new Date().toISOString(),
+                    type: currentPracticeType,
+                    correct: true
+                };
+                
+                // 添加新記錄
+                const updatedRecord = [...practiceRecord, newRecord];
+                
+                // 計算連續正確次數
+                let consecutiveCorrect = 0;
+                const recentRecords = updatedRecord.slice(-5); // 只看最近5次記錄
+                
+                for (let i = recentRecords.length - 1; i >= 0; i--) {
+                    if (recentRecords[i].correct) {
+                        consecutiveCorrect++;
+                    } else {
+                        break; // 遇到不正確就停止計數
+                    }
+                }
+                
+                // 如果連續正確3次以上，升級到已掌握
+                if (consecutiveCorrect >= 3) {
+                    newStatus = 'mastered';
+                    console.log(`單字 "${word.word}" 從"學習中"升級到"已掌握"，連續正確 ${consecutiveCorrect} 次`);
+                }
+                
+                // 無論是否升級，都需要更新練習記錄
+                word.practiceRecord = updatedRecord;
+                updateNeeded = true;
+            }
+            
+            // 更新單字狀態到數據庫
+            if (updateNeeded) {
+                const updatedWord = { ...word, status: newStatus };
+                try {
+                    await window.db.updateWord(updatedWord);
+                    console.log(`單字 "${word.word}" 狀態已更新為 "${newStatus}"`);
+                } catch (error) {
+                    console.error(`更新單字 "${word.word}" 狀態失敗:`, error);
+                }
+            }
+        }
+        
+        // 發送詞彙列表更新通知
+        const event = new CustomEvent('vocabListsUpdated');
+        document.dispatchEvent(event);
+        
+        console.log('單字狀態更新完成');
+    } catch (error) {
+        console.error('更新單字狀態時發生錯誤:', error);
+    }
+}
+
+/**
+ * 獲取答對的單字索引
+ * @returns {Array} - 答對單字的索引數組
+ */
+function getCorrectWordIndices() {
+    if (!window.practiceCorrectAnswers) {
+        // 如果沒有全局答對記錄，則根據分數猜測
+        window.practiceCorrectAnswers = [];
+    }
+    
+    // 如果全局記錄非空，直接返回
+    if (window.practiceCorrectAnswers.length > 0) {
+        const result = [...window.practiceCorrectAnswers];
+        window.practiceCorrectAnswers = []; // 清空全局記錄
+        return result;
+    }
+    
+    // 如果沒有詳細記錄，則通過分數估計
+    // 假設所有得分的都是前幾個單字（這是粗略估計，實際可能不準確）
+    const indices = [];
+    for (let i = 0; i < currentScore && i < practiceWords.length; i++) {
+        indices.push(i);
+    }
+    
+    return indices;
 }
 
 /**
