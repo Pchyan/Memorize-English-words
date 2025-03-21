@@ -99,6 +99,26 @@ async function initFlashcards() {
     } else {
         console.error('找不到下一張按鈕元素');
     }
+
+    // 跳轉功能的點擊事件監聽
+    const jumpToBtn = document.getElementById('jumpToBtn');
+    if (jumpToBtn) {
+        jumpToBtn.removeEventListener('click', jumpToCardHandler);
+        jumpToBtn.addEventListener('click', jumpToCardHandler);
+        console.log('已為跳轉按鈕添加點擊事件監聽器');
+    } else {
+        console.error('找不到跳轉按鈕元素');
+    }
+
+    // 跳轉輸入框的Enter鍵監聽
+    const jumpToInput = document.getElementById('jumpToInput');
+    if (jumpToInput) {
+        jumpToInput.removeEventListener('keypress', handleJumpInputKeypress);
+        jumpToInput.addEventListener('keypress', handleJumpInputKeypress);
+        console.log('已為跳轉輸入框添加鍵盤事件監聽器');
+    } else {
+        console.error('找不到跳轉輸入框元素');
+    }
     
     // 自動播放按鈕
     const autoPlayBtn = document.getElementById('autoPlayBtn');
@@ -583,6 +603,13 @@ function updateCardCounter() {
         console.log('卡片計數器更新為:', counterText);
     } else {
         console.error('找不到計數器元素或沒有卡片');
+    }
+
+    // 更新跳轉輸入框的限制
+    const jumpToInput = document.getElementById('jumpToInput');
+    if (jumpToInput && cards.length > 0) {
+        jumpToInput.setAttribute('max', cards.length.toString());
+        jumpToInput.setAttribute('placeholder', `1-${cards.length}`);
     }
 }
 
@@ -3585,4 +3612,67 @@ async function generateFallbackSynonyms(card) {
     
     // 更新頁面顯示
     updateSynonymsPanel();
+}
+
+/**
+ * 處理跳轉按鈕點擊事件
+ */
+function jumpToCardHandler() {
+    const jumpToInput = document.getElementById('jumpToInput');
+    if (!jumpToInput) return;
+
+    const targetIndex = parseInt(jumpToInput.value);
+    jumpToCard(targetIndex);
+}
+
+/**
+ * 處理跳轉輸入框按鍵事件
+ * @param {Event} e - 鍵盤事件
+ */
+function handleJumpInputKeypress(e) {
+    if (e.key === 'Enter') {
+        jumpToCardHandler();
+    }
+}
+
+/**
+ * 跳轉到指定索引的卡片
+ * @param {number} targetIndex - 目標卡片索引
+ */
+function jumpToCard(targetIndex) {
+    console.log(`嘗試跳轉到卡片索引: ${targetIndex}`);
+    
+    if (!cards || cards.length === 0) {
+        console.error('沒有卡片可跳轉');
+        showNotification('沒有可用的單字卡', 'error');
+        return;
+    }
+    
+    // 確保索引為數字
+    if (isNaN(targetIndex)) {
+        console.error('無效的卡片索引:', targetIndex);
+        showNotification('請輸入有效的數字', 'error');
+        return;
+    }
+    
+    // 調整索引從1開始到實際從0開始的數組索引
+    const adjustedIndex = targetIndex - 1;
+    
+    // 檢查索引範圍
+    if (adjustedIndex < 0 || adjustedIndex >= cards.length) {
+        console.error('卡片索引超出範圍:', targetIndex);
+        showNotification(`請輸入1到${cards.length}之間的數字`, 'error');
+        return;
+    }
+    
+    // 更新當前索引並顯示該卡片
+    currentCardIndex = adjustedIndex;
+    showCard(currentCardIndex);
+    console.log(`已跳轉到卡片索引: ${currentCardIndex} (顯示為第 ${currentCardIndex + 1} 張)`);
+    
+    // 清空輸入框
+    const jumpToInput = document.getElementById('jumpToInput');
+    if (jumpToInput) {
+        jumpToInput.value = '';
+    }
 }
