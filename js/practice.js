@@ -15,7 +15,9 @@ let firstSelected = null;
 // 在文檔加載完成後初始化練習模組
 document.addEventListener('DOMContentLoaded', function() {
     console.log('練習測驗頁面初始化中...');
-    initPracticeModule();
+    initPractice().catch(error => {
+        console.error('初始化練習頁面失敗：', error);
+    });
     
     // 監聽頁面切換事件，當切換到練習測驗頁面時更新詞彙表
     document.querySelectorAll('nav a').forEach(link => {
@@ -44,10 +46,18 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 /**
- * 初始化練習模組
+ * 初始化練習頁面
  */
-function initPracticeModule() {
-    console.log('初始化練習模組');
+async function initPractice() {
+    console.log('初始化練習頁面');
+    
+    // 添加樣式
+    addPracticeStyles();
+    
+    // 確保獲取到詞彙數據
+    if (!window.appData.vocabulary || window.appData.vocabulary.length === 0) {
+        await loadVocabularyData();
+    }
     
     // 初始化類型選擇器
     initPracticeTypeSelector();
@@ -66,6 +76,51 @@ function initPracticeModule() {
     
     // 確保一開始所有練習模式都隱藏
     hideAllPracticeModes();
+    
+    // 檢查 API KEY 是否存在，如果不存在則禁用填空測驗選項
+    checkAndDisableFillOption();
+    
+    // 監聽頁面變化，當切換到練習頁面時更新詞彙表
+    document.addEventListener('pageChanged', (event) => {
+        if (event.detail.page === 'practice') {
+            console.log('進入練習頁面，更新詞彙表選項');
+            updatePracticeListOptions().catch(error => {
+                console.error('更新詞彙表選項出錯：', error);
+            });
+            
+            // 每次進入頁面時檢查 API KEY
+            checkAndDisableFillOption();
+        }
+    });
+}
+
+/**
+ * 檢查 API KEY 並禁用填空測驗選項
+ */
+function checkAndDisableFillOption() {
+    const API_KEY = localStorage.getItem('geminiApiKey');
+    const practiceTypeSelect = document.getElementById('practiceTypeSelect');
+    
+    if (practiceTypeSelect) {
+        const fillOption = Array.from(practiceTypeSelect.options).find(option => option.value === 'fill');
+        
+        if (fillOption) {
+            if (!API_KEY) {
+                // 如果沒有 API KEY，禁用填空測驗選項
+                fillOption.disabled = true;
+                fillOption.textContent = "填空練習 (需要 Gemini API Key)";
+                
+                // 如果當前選中的是填空測驗，切換到拼寫練習
+                if (practiceTypeSelect.value === 'fill') {
+                    practiceTypeSelect.value = 'spelling';
+                }
+            } else {
+                // 如果有 API KEY，啟用填空測驗選項
+                fillOption.disabled = false;
+                fillOption.textContent = "填空練習";
+            }
+        }
+    }
 }
 
 /**
@@ -844,6 +899,14 @@ function initFillInBlankPractice() {
  * 開始填空練習
  */
 function startFillInBlankPractice() {
+    // 檢查 API KEY 是否存在
+    const API_KEY = localStorage.getItem('geminiApiKey');
+    
+    if (!API_KEY) {
+        showNotification('需要設置 Google Gemini API Key 才能使用填空練習功能', 'error');
+        return;
+    }
+    
     // 顯示填空練習模式
     hideAllPracticeModes();
     const fillMode = document.getElementById('fillPractice');
@@ -860,26 +923,32 @@ function startFillInBlankPractice() {
  * @param {number} index - 問題索引
  */
 function showFillQuestion(index) {
+    // 檢查 API KEY 是否存在
+    const API_KEY = localStorage.getItem('geminiApiKey');
+    
+    if (!API_KEY) {
+        showNotification('需要設置 Google Gemini API Key 才能使用填空練習功能', 'error');
+        hideAllPracticeModes();
+        return;
+    }
+    
     if (practiceWords.length === 0 || index < 0 || index >= practiceWords.length) {
         return;
     }
     
     const word = practiceWords[index];
     
-    // 生成填空句子
-    const fillSentence = document.querySelector('.fill-sentence');
-    if (fillSentence) {
-        const example = word.examples && word.examples.length > 0 
-            ? word.examples[0] 
-            : `I have a ${word.word} today.`;
-        
-        // 將句子中的單字替換為填空
-        const sentenceHtml = example.replace(
-            new RegExp(word.word, 'gi'), 
-            '<input type="text" class="fill-blank" id="fillBlank">'
-        );
-        
-        fillSentence.innerHTML = sentenceHtml;
+    // 清空輸入框和反饋
+    const feedback = document.querySelector('#fillPractice .feedback');
+    if (feedback) {
+        feedback.textContent = '';
+        feedback.className = 'feedback';
+    }
+    
+    // 更新進度指示器
+    const progressIndicator = document.querySelector('#fillPractice .progress-indicator');
+    if (progressIndicator) {
+        progressIndicator.textContent = `${index + 1} / ${practiceWords.length}`;
     }
     
     // 更新提示
@@ -895,26 +964,168 @@ function showFillQuestion(index) {
         letterHint.textContent = hint;
         letterHint.classList.add('hidden');
     }
+
+    // 生成填空句子
+    const fillSentence = document.querySelector('.fill-sentence');
+    if (fillSentence) {
+        // 顯示載入中
+        fillSentence.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> 生成題目中...</div>';
+        
+        // 使用 Gemini API 生成句子
+        generateFillSentenceWithGemini(word)
+            .then(sentence => {
+                if (sentence) {
+                    // 將句子中的單字替換為填空
+                    const sentenceHtml = sentence.replace(
+                        new RegExp(word.word, 'gi'), 
+                        '<input type="text" class="fill-blank" id="fillBlank">'
+                    );
+                    
+                    fillSentence.innerHTML = sentenceHtml;
+                    
+                    // 聚焦填空輸入框
+                    const fillBlank = document.getElementById('fillBlank');
+                    if (fillBlank) {
+                        fillBlank.value = '';
+                        fillBlank.disabled = false;
+                        fillBlank.focus();
+                    }
+                } else {
+                    // API 生成失敗，顯示錯誤訊息
+                    fillSentence.innerHTML = `
+                        <div class="api-error-message">
+                            <h4>無法生成填空句子</h4>
+                            <p>Gemini API 無法生成適用於單字 "${word.word}" 的句子。</p>
+                            <button id="retry-fill-btn" class="generate-btn">
+                                <i class="fas fa-redo"></i> 重試
+                            </button>
+                        </div>
+                    `;
+                    
+                    // 添加重試按鈕事件
+                    const retryBtn = document.getElementById('retry-fill-btn');
+                    if (retryBtn) {
+                        retryBtn.addEventListener('click', () => {
+                            showFillQuestion(index);
+                        });
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('生成填空句子時出錯:', error);
+                // API 請求失敗，顯示錯誤訊息
+                fillSentence.innerHTML = `
+                    <div class="api-error-message">
+                        <h4>API 請求失敗</h4>
+                        <p>無法連接至 Gemini API 或請求過程中發生錯誤。</p>
+                        <p>錯誤信息: ${error.message}</p>
+                        <button id="retry-fill-btn" class="generate-btn">
+                            <i class="fas fa-redo"></i> 重試
+                        </button>
+                    </div>
+                `;
+                
+                // 添加重試按鈕事件
+                const retryBtn = document.getElementById('retry-fill-btn');
+                if (retryBtn) {
+                    retryBtn.addEventListener('click', () => {
+                        showFillQuestion(index);
+                    });
+                }
+            });
+    }
+}
+
+/**
+ * 使用 Google Gemini API 生成填空句子
+ * @param {Object} word - 單字對象
+ * @returns {Promise<string|null>} - 生成的句子或 null
+ */
+async function generateFillSentenceWithGemini(word) {
+    // 從 localStorage 獲取 API 密鑰
+    const API_KEY = localStorage.getItem('geminiApiKey');
     
-    // 清空輸入框和反饋
-    const fillBlank = document.getElementById('fillBlank');
-    const feedback = document.querySelector('#fillPractice .feedback');
-    
-    if (fillBlank) {
-        fillBlank.value = '';
-        fillBlank.disabled = false;
-        fillBlank.focus();
+    if (!API_KEY) {
+        console.warn('未設置 Gemini API 密鑰，無法使用 Gemini API 生成填空句子');
+        return null;
     }
     
-    if (feedback) {
-        feedback.textContent = '';
-        feedback.className = 'feedback';
-    }
+    const wordText = word.word;
+    const meaning = word.meaning || '';
+    const partOfSpeech = word.partOfSpeech || '';
     
-    // 更新進度指示器
-    const progressIndicator = document.querySelector('#fillPractice .progress-indicator');
-    if (progressIndicator) {
-        progressIndicator.textContent = `${index + 1} / ${practiceWords.length}`;
+    // 構建提示詞
+    const prompt = `
+    請為英文單字 "${wordText}" 創建一個包含該單字的英文例句。
+    
+    單字資訊：
+    - 詞性：${partOfSpeech}
+    - 中文意思：${meaning}
+    
+    要求：
+    1. 句子應該簡單清晰，適合語言學習者
+    2. 句子長度在 8-15 個單詞之間
+    3. 句子中必須包含單字 "${wordText}"
+    4. 句子應該展示該單字的正確用法
+    5. 不要使用太艱深的詞彙
+    
+    請直接輸出英文例句，不要包含任何額外說明或標記。請確保單字 "${wordText}" 在句子中以原形出現，便於識別。
+    `;
+    
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${API_KEY}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                contents: [
+                    {
+                        parts: [
+                            {
+                                text: prompt
+                            }
+                        ]
+                    }
+                ],
+                generationConfig: {
+                    temperature: 0.7,
+                    topK: 40,
+                    topP: 0.95,
+                    maxOutputTokens: 1024,
+                }
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`API 請求失敗: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.candidates && data.candidates.length > 0 && 
+            data.candidates[0].content && 
+            data.candidates[0].content.parts && 
+            data.candidates[0].content.parts.length > 0) {
+            
+            let sentence = data.candidates[0].content.parts[0].text.trim();
+            
+            // 清理句子，確保句子包含目標單字
+            sentence = sentence.replace(/^["'\s\n]+|["'\s\n]+$/g, '');
+            
+            // 檢查句子是否包含目標單字
+            if (!sentence.match(new RegExp(wordText, 'i'))) {
+                console.warn('生成的句子不包含目標單字');
+                return null;
+            }
+            
+            return sentence;
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('調用 Gemini API 時出錯:', error);
+        throw error;
     }
 }
 
@@ -1265,6 +1476,320 @@ function showNotification(message, type = 'info', duration = 3000) {
     setTimeout(() => {
         notification.style.display = 'none';
     }, duration);
+}
+
+/**
+ * 添加練習頁面的樣式
+ */
+function addPracticeStyles() {
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+        /* 練習頁面樣式 */
+        #practice .page-header {
+            margin-bottom: 30px;
+        }
+        
+        #practice .practice-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        #practice .practice-controls select {
+            flex: 1;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f8f8f8;
+        }
+        
+        #practice .practice-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .practice-mode {
+            display: none;
+            width: 100%;
+        }
+        
+        .practice-mode.active {
+            display: block;
+        }
+        
+        .practice-card {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            width: 100%;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        
+        .practice-question {
+            margin-bottom: 20px;
+        }
+        
+        .practice-question h3 {
+            font-size: 1.4em;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .part-of-speech {
+            font-style: italic;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .hint-section {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .hint-btn {
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.2s;
+        }
+        
+        .hint-btn:hover {
+            background-color: #e0e0e0;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .practice-submit {
+            margin: 20px 0;
+        }
+        
+        .feedback {
+            padding: 10px;
+            margin: 15px 0;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        
+        .feedback.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .feedback.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .practice-navigation {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+        }
+        
+        .nav-btn {
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .nav-btn:hover {
+            background-color: #e0e0e0;
+        }
+        
+        .progress-indicator {
+            font-size: 0.9em;
+            color: #666;
+        }
+        
+        /* 拼寫練習樣式 */
+        #spellingInput {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1.1em;
+            margin-bottom: 10px;
+        }
+        
+        /* 選擇題樣式 */
+        .practice-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .option {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .option:hover {
+            background-color: #f9f9f9;
+        }
+        
+        .option input[type="radio"] {
+            margin-right: 10px;
+        }
+        
+        /* 配對遊戲樣式 */
+        .matching-game {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .matching-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .matching-item {
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        
+        .matching-item:hover {
+            background-color: #e0e0e0;
+        }
+        
+        .matching-item.selected {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+        }
+        
+        .matching-item.matched {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            cursor: default;
+        }
+        
+        .matching-timer, .matching-score {
+            text-align: center;
+            margin: 10px 0;
+            font-size: 1.1em;
+        }
+        
+        /* 填空練習樣式 */
+        .fill-sentence {
+            font-size: 1.2em;
+            line-height: 1.6;
+            margin: 15px 0;
+        }
+        
+        .fill-blank {
+            width: 150px;
+            padding: 5px 10px;
+            border: 1px solid #aaa;
+            border-radius: 4px;
+            font-size: 1em;
+            margin: 0 5px;
+        }
+        
+        .meaning-hint, .letter-hint {
+            padding: 8px 12px;
+            margin: 10px 0;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border-left: 3px solid #007bff;
+        }
+        
+        /* Gemini API 相關樣式 */
+        .loading-spinner {
+            padding: 20px;
+            text-align: center;
+            color: #666;
+        }
+        
+        .loading-spinner i {
+            margin-right: 8px;
+            font-size: 1.2em;
+        }
+        
+        .loading-suggestion {
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            margin: 10px 0;
+            text-align: center;
+        }
+        
+        .loading-suggestion.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .api-error-message {
+            padding: 15px;
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        
+        .api-error-message h4 {
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        
+        .api-error-message ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .generate-btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 15px;
+            cursor: pointer;
+            font-size: 0.9em;
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .generate-btn:hover {
+            background-color: #0069d9;
+        }
+        
+        .generate-btn i {
+            font-size: 0.9em;
+        }
+    `;
+    document.head.appendChild(styleElement);
 }
 
 // 添加時間戳以強制瀏覽器刷新緩存

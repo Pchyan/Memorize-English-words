@@ -19,7 +19,10 @@ AIzaSyBJTy0EoemY0-zfUvpUNl3vOQleggT4l5Q
 3.選擇"拼寫練習"時，畫面就只有"拼寫練習"，其他測驗不要出現。選擇其他測驗時也一樣。
 
 
-接下來修改 "填空測驗"，跟"建立聯想"功能一樣使用 Google Gemini API 完成 AI 生成選擇題。
+@Web 
+@codebase
+請嚴謹一些，不要影響目前功能的前提下改正：
+跟"記憶卡"頁面的"建立聯想"功能一樣，使用 Google Gemini API 協助在 "練習測驗"頁面的 "填空測驗"功能，生成題目。
 
 
 @Web 
