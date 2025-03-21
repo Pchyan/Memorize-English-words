@@ -12,50 +12,75 @@ let matchingTimer = null;
 let matchingTimeLeft = 60;
 let firstSelected = null;
 
-document.addEventListener('DOMContentLoaded', () => {
+// 在文檔加載完成後初始化練習模組
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('練習測驗頁面初始化中...');
     initPracticeModule();
+    
+    // 監聽頁面切換事件，當切換到練習測驗頁面時更新詞彙表
+    document.querySelectorAll('nav a').forEach(link => {
+        link.addEventListener('click', function(e) {
+            if (this.getAttribute('data-page') === 'practice') {
+                console.log('切換到練習測驗頁面，更新詞彙表選項');
+                // 延遲一點初始化，確保頁面已經切換
+                setTimeout(() => {
+                    updatePracticeListOptions().catch(error => {
+                        console.error('更新詞彙表選項失敗：', error);
+                    });
+                }, 100);
+            }
+        });
+    });
+    
+    // 也發送一個自定義事件，以便其他模組可以通知我們更新詞彙表
+    document.addEventListener('vocabListsUpdated', function() {
+        console.log('接收到詞彙列表更新通知，更新練習詞彙表選項');
+        if (document.getElementById('practice').classList.contains('active')) {
+            updatePracticeListOptions().catch(error => {
+                console.error('更新詞彙表選項失敗：', error);
+            });
+        }
+    });
 });
 
 /**
  * 初始化練習模組
  */
 function initPracticeModule() {
-    // 確保在練習頁面才初始化
-    if (!document.getElementById('practice')) {
-        return;
-    }
+    console.log('初始化練習模組');
     
-    // 初始化練習類型選擇器
+    // 初始化類型選擇器
     initPracticeTypeSelector();
     
-    // 初始化詞彙表選擇器
+    // 初始化列表選擇器
     initPracticeListSelector();
     
     // 初始化開始練習按鈕
     initStartPracticeButton();
     
-    // 初始化拼寫練習
+    // 初始化各種練習模式
     initSpellingPractice();
-    
-    // 初始化選擇題測驗
     initMultipleChoicePractice();
-    
-    // 初始化填空練習
+    initMatchingGame();
     initFillInBlankPractice();
     
-    // 初始化配對遊戲
-    initMatchingGame();
+    // 確保一開始所有練習模式都隱藏
+    hideAllPracticeModes();
 }
 
 /**
  * 初始化練習類型選擇器
  */
 function initPracticeTypeSelector() {
+    console.log('初始化練習類型選擇器');
     const practiceTypeSelect = document.getElementById('practiceTypeSelect');
-    if (!practiceTypeSelect) return;
     
-    practiceTypeSelect.addEventListener('change', () => {
-        currentPracticeType = practiceTypeSelect.value;
+    if (!practiceTypeSelect) {
+        console.error('找不到練習類型選擇器元素');
+        return;
+    }
+    
+    practiceTypeSelect.addEventListener('change', function() {
         hideAllPracticeModes();
     });
 }
@@ -65,44 +90,85 @@ function initPracticeTypeSelector() {
  */
 function initPracticeListSelector() {
     const practiceListSelect = document.getElementById('practiceListSelect');
-    if (!practiceListSelect) return;
+    if (!practiceListSelect) {
+        console.error('找不到練習詞彙表選擇器元素');
+        return;
+    }
     
     // 從詞彙管理中獲取詞彙表
-    updatePracticeListOptions();
+    updatePracticeListOptions().catch(error => {
+        console.error('初始化詞彙表選擇器出錯：', error);
+        showNotification('無法加載詞彙表數據', 'error');
+    });
 }
 
 /**
  * 更新詞彙表選項
  */
-function updatePracticeListOptions() {
-    const practiceListSelect = document.getElementById('practiceListSelect');
-    if (!practiceListSelect) return;
-    
-    // 清空現有選項
-    practiceListSelect.innerHTML = '';
-    
-    // 添加預設選項
-    const defaultOptions = [
-        { value: 'all', text: '所有單字' },
-        { value: 'new', text: '新學單字' },
-        { value: 'difficult', text: '困難單字' }
-    ];
-    
-    defaultOptions.forEach(option => {
-        const optElement = document.createElement('option');
-        optElement.value = option.value;
-        optElement.textContent = option.text;
-        practiceListSelect.appendChild(optElement);
-    });
-    
-    // 從全局數據中獲取自定義詞彙表
-    if (window.appData && window.appData.wordLists) {
-        window.appData.wordLists.forEach(list => {
+async function updatePracticeListOptions() {
+    try {
+        const practiceListSelect = document.getElementById('practiceListSelect');
+        if (!practiceListSelect) {
+            console.error('找不到詞彙表選擇器元素');
+            return false;
+        }
+        
+        // 保存當前選中的值
+        const currentSelectedValue = practiceListSelect.value;
+        
+        // 清空現有選項
+        practiceListSelect.innerHTML = '';
+        
+        // 添加預設選項（與詞彙管理頁面相同的預設組）
+        const defaultOptions = [
+            { value: 'all', text: '所有單字' },
+            { value: 'notLearned', text: '未學習' },
+            { value: 'learning', text: '學習中' },
+            { value: 'mastered', text: '已掌握' }
+        ];
+        
+        defaultOptions.forEach(option => {
             const optElement = document.createElement('option');
-            optElement.value = list.id;
-            optElement.textContent = list.name;
+            optElement.value = option.value;
+            optElement.textContent = option.text;
             practiceListSelect.appendChild(optElement);
         });
+        
+        // 從資料庫獲取自定義詞彙表
+        if (window.db && typeof window.db.getAllWordLists === 'function') {
+            console.log('從資料庫獲取自定義詞彙表...');
+            const lists = await window.db.getAllWordLists();
+            console.log('取得自定義詞彙表：', lists);
+            
+            if (lists && lists.length > 0) {
+                // 添加分隔線
+                const separator = document.createElement('option');
+                separator.disabled = true;
+                separator.textContent = '──────────';
+                practiceListSelect.appendChild(separator);
+                
+                // 添加自定義詞彙表
+                lists.forEach(list => {
+                    const optElement = document.createElement('option');
+                    optElement.value = list.id;
+                    optElement.textContent = list.name;
+                    practiceListSelect.appendChild(optElement);
+                });
+            }
+            
+            // 嘗試恢復先前選中的值
+            if (currentSelectedValue && Array.from(practiceListSelect.options).some(opt => opt.value === currentSelectedValue)) {
+                practiceListSelect.value = currentSelectedValue;
+            }
+            
+            return true;
+        } else {
+            console.warn('無法訪問資料庫或獲取詞彙表函數');
+            return false;
+        }
+    } catch (error) {
+        console.error('更新詞彙表選項失敗：', error);
+        return false;
     }
 }
 
@@ -110,14 +176,22 @@ function updatePracticeListOptions() {
  * 初始化開始練習按鈕
  */
 function initStartPracticeButton() {
+    console.log('初始化開始練習按鈕');
     const startPracticeBtn = document.getElementById('startPracticeBtn');
-    if (!startPracticeBtn) return;
     
-    startPracticeBtn.addEventListener('click', async () => {
+    if (!startPracticeBtn) {
+        console.error('找不到開始練習按鈕元素');
+        return;
+    }
+    
+    startPracticeBtn.addEventListener('click', async function() {
+        console.log('點擊開始練習按鈕');
+        
         const practiceTypeSelect = document.getElementById('practiceTypeSelect');
         const practiceListSelect = document.getElementById('practiceListSelect');
         
         if (!practiceTypeSelect || !practiceListSelect) {
+            console.error('找不到練習類型或詞彙表選擇器');
             showNotification('無法初始化練習設置', 'error');
             return;
         }
@@ -125,30 +199,44 @@ function initStartPracticeButton() {
         currentPracticeType = practiceTypeSelect.value;
         const selectedList = practiceListSelect.value;
         
+        console.log(`選擇的練習類型: ${currentPracticeType}, 選擇的詞彙表: ${selectedList}`);
+        
         // 顯示載入中狀態
         startPracticeBtn.disabled = true;
         startPracticeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 載入中...';
         
         try {
             // 載入練習詞彙
+            console.log('開始載入練習詞彙...');
             const success = await loadPracticeWords(selectedList);
             
             if (success) {
+                console.log('詞彙載入成功，準備開始練習');
                 // 根據練習類型開始相應的練習
                 switch (currentPracticeType) {
                     case 'spelling':
+                        console.log('啟動拼寫練習');
                         startSpellingPractice();
                         break;
                     case 'multiple':
+                        console.log('啟動選擇題測驗');
                         startMultipleChoicePractice();
                         break;
                     case 'matching':
+                        console.log('啟動配對遊戲');
                         startMatchingGame();
                         break;
                     case 'fill':
+                        console.log('啟動填空練習');
                         startFillInBlankPractice();
                         break;
+                    default:
+                        console.error(`未知的練習類型: ${currentPracticeType}`);
+                        showNotification('不支持的練習類型', 'error');
                 }
+            } else {
+                console.error('詞彙載入失敗或沒有詞彙可用');
+                // 注意：這裡不再顯示重複的通知，因為loadPracticeWords中已經顯示了更詳細的錯誤訊息
             }
         } catch (error) {
             console.error('開始練習失敗：', error);
@@ -163,48 +251,108 @@ function initStartPracticeButton() {
 
 /**
  * 載入練習用的詞彙
- * @param {string} listName - 詞彙表名稱
+ * @param {string} listName - 詞彙表名稱或ID
  */
 async function loadPracticeWords(listName = 'all') {
+    console.log(`正在載入練習詞彙，選定的詞彙表: ${listName}`);
+    
+    // 重置練習狀態
+    currentPracticeIndex = 0;
+    currentScore = 0;
+    
+    // 清除先前的錯誤訊息
+    const practiceContainer = document.querySelector('.practice-container');
+    const existingErrorMsg = document.getElementById('practice-error-message');
+    if (existingErrorMsg) {
+        existingErrorMsg.remove();
+    }
+    
     try {
-        let words;
+        let words = [];
         
-        // 從資料庫載入單字
+        // 根據選擇的詞彙表載入單字
         if (listName === 'all') {
+            // 所有單字
+            console.log('載入所有單字');
             words = await window.db.getAllWords();
-        } else if (listName === 'new') {
+        } else if (listName === 'notLearned') {
+            // 未學習單字
+            console.log('載入未學習單字');
             words = await window.db.getWordsByStatus('notLearned');
-        } else if (listName === 'difficult') {
-            words = await window.db.getWordsByStatus('difficult');
+        } else if (listName === 'learning') {
+            // 學習中單字
+            console.log('載入學習中單字');
+            words = await window.db.getWordsByStatus('learning');
+        } else if (listName === 'mastered') {
+            // 已掌握單字
+            console.log('載入已掌握單字');
+            words = await window.db.getWordsByStatus('mastered');
         } else {
+            // 自定義詞彙表
+            console.log(`載入自定義詞彙表 (ID: ${listName}) 的單字`);
             words = await window.db.getWordsInList(listName);
         }
         
-        // 如果沒有單字，顯示提示
-        if (!words || words.length === 0) {
-            showNotification('選擇的詞彙表中沒有單字', 'warning');
-            return;
+        console.log(`載入了 ${words.length} 個單字`);
+        
+        // 檢查是否有可用單字
+        if (words.length === 0) {
+            console.log('所選詞彙表中沒有單字');
+            
+            // 創建持久性錯誤訊息
+            const errorMessage = document.createElement('div');
+            errorMessage.id = 'practice-error-message';
+            errorMessage.className = 'practice-error-message';
+            errorMessage.innerHTML = `
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>所選詞彙表「${listName === 'all' ? '所有單字' : 
+                   listName === 'notLearned' ? '未學習' : 
+                   listName === 'learning' ? '學習中' : 
+                   listName === 'mastered' ? '已掌握' : listName}」中沒有可用的單字</p>
+                <p>請選擇其他詞彙表或添加單字後再試</p>
+                <button id="dismiss-error-btn" class="btn">知道了</button>
+            `;
+            
+            // 添加到練習容器的頂部
+            if (practiceContainer) {
+                practiceContainer.insertBefore(errorMessage, practiceContainer.firstChild);
+                
+                // 添加關閉按鈕事件
+                const dismissBtn = document.getElementById('dismiss-error-btn');
+                if (dismissBtn) {
+                    dismissBtn.addEventListener('click', () => {
+                        errorMessage.remove();
+                    });
+                }
+            }
+            
+            // 仍然顯示通知以確保用戶注意到
+            showNotification('所選詞彙表中沒有可用的單字', 'error');
+            return false;
         }
         
-        console.log('已載入單字：', words);
+        // 隨機排序詞彙
+        const shuffledWords = shuffleArray([...words]);
         
-        // 打亂單字順序
-        practiceWords = shuffleArray(words);
+        // 取前10個單字，如果不足10個則使用全部
+        const maxPracticeWords = 10;
+        practiceWords = shuffledWords.length > maxPracticeWords 
+            ? shuffledWords.slice(0, maxPracticeWords) 
+            : shuffledWords;
+            
+        console.log(`練習詞彙已準備好，單字數量: ${practiceWords.length}/${words.length}`);
         
-        // 如果單字太多，只取前10個
-        if (practiceWords.length > 10) {
-            practiceWords = practiceWords.slice(0, 10);
+        // 顯示通知
+        if (words.length <= maxPracticeWords) {
+            showNotification(`已載入所有 ${words.length} 個單字進行練習`, 'info');
+        } else {
+            showNotification(`已從 ${words.length} 個單字中隨機選取 ${maxPracticeWords} 個進行練習`, 'info');
         }
         
-        // 重置當前索引和分數
-        currentPracticeIndex = 0;
-        currentScore = 0;
-        
-        console.log('練習單字準備完成：', practiceWords);
         return true;
     } catch (error) {
-        console.error('載入練習單字失敗：', error);
-        showNotification('載入單字數據失敗', 'error');
+        console.error('載入練習詞彙失敗:', error);
+        showNotification('載入練習詞彙失敗', 'error');
         return false;
     }
 }
@@ -213,7 +361,9 @@ async function loadPracticeWords(listName = 'all') {
  * 隱藏所有練習模式
  */
 function hideAllPracticeModes() {
-    document.querySelectorAll('.practice-mode').forEach(mode => {
+    console.log('隱藏所有練習模式');
+    const practiceModes = document.querySelectorAll('.practice-mode');
+    practiceModes.forEach(mode => {
         mode.classList.remove('active');
     });
 }
@@ -299,11 +449,18 @@ function initSpellingPractice() {
  * 開始拼寫練習
  */
 function startSpellingPractice() {
-    // 顯示拼寫練習模式
+    console.log('開始拼寫練習');
+    
+    // 隱藏所有練習模式
     hideAllPracticeModes();
-    const spellingMode = document.getElementById('spellingPractice');
-    if (spellingMode) {
-        spellingMode.classList.add('active');
+    
+    // 顯示拼寫練習
+    const spellingPractice = document.getElementById('spellingPractice');
+    if (spellingPractice) {
+        spellingPractice.classList.add('active');
+    } else {
+        console.error('找不到拼寫練習元素');
+        return;
     }
     
     // 顯示第一個問題
@@ -1108,4 +1265,7 @@ function showNotification(message, type = 'info', duration = 3000) {
     setTimeout(() => {
         notification.style.display = 'none';
     }, duration);
-} 
+}
+
+// 添加時間戳以強制瀏覽器刷新緩存
+console.log('練習測驗模組加載完成，版本時間戳：' + new Date().toISOString()); 

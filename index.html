@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>記憶英文單字 - 您的個人英語詞彙學習助手</title>
-    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/styles.css?v=1.2">
     <!-- Font Awesome 圖標庫 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Google Fonts -->
@@ -296,7 +296,7 @@
             <div class="container">
                 <div class="page-header">
                     <h2>練習測驗</h2>
-                    <div class="controls">
+                    <div class="practice-controls">
                         <select id="practiceTypeSelect">
                             <option value="spelling">拼寫練習</option>
                             <option value="multiple">選擇題測驗</option>
@@ -305,21 +305,22 @@
                         </select>
                         <select id="practiceListSelect">
                             <option value="all">所有單字</option>
-                            <option value="new">新學單字</option>
-                            <option value="difficult">困難單字</option>
-                            <option value="custom">自訂詞彙表</option>
+                            <option value="notLearned">未學習</option>
+                            <option value="learning">學習中</option>
+                            <option value="mastered">已掌握</option>
                         </select>
-                        <button class="btn primary" id="startPracticeBtn">開始練習</button>
+                        <button id="startPracticeBtn">開始練習</button>
                     </div>
                 </div>
                 
                 <div class="practice-container">
                     <!-- 拼寫練習 -->
-                    <div class="practice-mode active" id="spellingPractice">
+                    <div class="practice-mode" id="spellingPractice">
                         <div class="practice-card">
                             <div class="practice-question">
                                 <h3>請拼寫出下列單字</h3>
                                 <div class="meaning">蘋果</div>
+                                <div class="part-of-speech">名詞</div>
                                 <div class="hint-section">
                                     <button class="hint-btn" id="phoneticHintBtn">顯示音標</button>
                                     <button class="hint-btn" id="firstLetterHintBtn">顯示首字母</button>
@@ -330,16 +331,16 @@
                             </div>
                             <div class="practice-answer">
                                 <input type="text" id="spellingInput" placeholder="請輸入拼寫...">
-                                <button class="btn primary" id="checkSpellingBtn">檢查答案</button>
+                                <button id="checkSpellingBtn">檢查答案</button>
                             </div>
                             <div class="feedback">
                                 <!-- 回饋會在這顯示 -->
                             </div>
-                        </div>
-                        <div class="practice-navigation">
-                            <button class="nav-btn" id="prevSpellingBtn"><i class="fas fa-chevron-left"></i></button>
-                            <div class="progress-indicator">1 / 10</div>
-                            <button class="nav-btn" id="nextSpellingBtn"><i class="fas fa-chevron-right"></i></button>
+                            <div class="practice-navigation">
+                                <button class="nav-btn" id="prevSpellingBtn"><i class="fas fa-chevron-left"></i></button>
+                                <div class="progress-indicator">1 / 10</div>
+                                <button class="nav-btn" id="nextSpellingBtn"><i class="fas fa-chevron-right"></i></button>
+                            </div>
                         </div>
                     </div>
                     
@@ -369,42 +370,46 @@
                                 </div>
                             </div>
                             <div class="practice-submit">
-                                <button class="btn primary" id="submitMultipleBtn">提交答案</button>
+                                <button id="submitMultipleBtn">提交答案</button>
                             </div>
                             <div class="feedback">
                                 <!-- 回饋會在這顯示 -->
                             </div>
-                        </div>
-                        <div class="practice-navigation">
-                            <button class="nav-btn" id="prevMultipleBtn"><i class="fas fa-chevron-left"></i></button>
-                            <div class="progress-indicator">1 / 10</div>
-                            <button class="nav-btn" id="nextMultipleBtn"><i class="fas fa-chevron-right"></i></button>
+                            <div class="practice-navigation">
+                                <button class="nav-btn" id="prevMultipleBtn"><i class="fas fa-chevron-left"></i></button>
+                                <div class="progress-indicator">1 / 10</div>
+                                <button class="nav-btn" id="nextMultipleBtn"><i class="fas fa-chevron-right"></i></button>
+                            </div>
                         </div>
                     </div>
                     
                     <!-- 配對遊戲 -->
                     <div class="practice-mode" id="matchingPractice">
-                        <div class="matching-container">
-                            <h3>將英文單字與對應的中文意思配對</h3>
-                            <div class="matching-game">
-                                <div class="matching-column">
-                                    <div class="matching-item" data-id="1">Apple</div>
-                                    <div class="matching-item" data-id="2">Banana</div>
-                                    <div class="matching-item" data-id="3">Orange</div>
-                                    <div class="matching-item" data-id="4">Grape</div>
+                        <div class="practice-card">
+                            <div class="matching-container">
+                                <h3>將英文單字與對應的中文意思配對</h3>
+                                <div class="matching-stats">
+                                    <div class="matching-timer">60 秒</div>
+                                    <div class="matching-score">已匹配: 0 / 6</div>
                                 </div>
-                                <div class="matching-column">
-                                    <div class="matching-item" data-id="3">橘子</div>
-                                    <div class="matching-item" data-id="4">葡萄</div>
-                                    <div class="matching-item" data-id="1">蘋果</div>
-                                    <div class="matching-item" data-id="2">香蕉</div>
+                                <div class="matching-game">
+                                    <div class="matching-column">
+                                        <div class="matching-item" data-id="1">Apple</div>
+                                        <div class="matching-item" data-id="2">Banana</div>
+                                        <div class="matching-item" data-id="3">Orange</div>
+                                        <div class="matching-item" data-id="4">Grape</div>
+                                        <div class="matching-item" data-id="5">Strawberry</div>
+                                        <div class="matching-item" data-id="6">Pineapple</div>
+                                    </div>
+                                    <div class="matching-column">
+                                        <div class="matching-item" data-id="1">蘋果</div>
+                                        <div class="matching-item" data-id="2">香蕉</div>
+                                        <div class="matching-item" data-id="3">橘子</div>
+                                        <div class="matching-item" data-id="4">葡萄</div>
+                                        <div class="matching-item" data-id="5">草莓</div>
+                                        <div class="matching-item" data-id="6">鳳梨</div>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="matching-timer">
-                                <i class="fas fa-clock"></i> <span id="matchingTime">01:00</span>
-                            </div>
-                            <div class="matching-score">
-                                已配對: <span id="matchedCount">0</span> / 4
                             </div>
                         </div>
                     </div>
@@ -425,16 +430,16 @@
                                 <div class="letter-hint hidden">a _ _ _ _</div>
                             </div>
                             <div class="practice-submit">
-                                <button class="btn primary" id="checkFillBtn">檢查答案</button>
+                                <button id="checkFillBtn">檢查答案</button>
                             </div>
                             <div class="feedback">
                                 <!-- 回饋會在這顯示 -->
                             </div>
-                        </div>
-                        <div class="practice-navigation">
-                            <button class="nav-btn" id="prevFillBtn"><i class="fas fa-chevron-left"></i></button>
-                            <div class="progress-indicator">1 / 10</div>
-                            <button class="nav-btn" id="nextFillBtn"><i class="fas fa-chevron-right"></i></button>
+                            <div class="practice-navigation">
+                                <button class="nav-btn" id="prevFillBtn"><i class="fas fa-chevron-left"></i></button>
+                                <div class="progress-indicator">1 / 10</div>
+                                <button class="nav-btn" id="nextFillBtn"><i class="fas fa-chevron-right"></i></button>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -31,36 +31,39 @@ document.addEventListener('DOMContentLoaded', async () => {
         await window.db.init();
         console.log('資料庫初始化成功');
     
-    // 檢查當前頁面是否為詞彙管理頁面
-    const vocabularyPage = document.getElementById('vocabulary');
-    if (vocabularyPage && vocabularyPage.classList.contains('active')) {
-        console.log('當前頁面是詞彙管理頁面，立即初始化');
+        // 檢查當前頁面是否為詞彙管理頁面
+        const vocabularyPage = document.getElementById('vocabulary');
+        if (vocabularyPage && vocabularyPage.classList.contains('active')) {
+            console.log('當前頁面是詞彙管理頁面，立即初始化');
             await initVocabularyManager();
-    } else {
+        } else {
             // 否則，監聽頁面切換事件
             const navLinks = document.querySelectorAll('nav a');
             navLinks.forEach(link => {
                 link.addEventListener('click', async function(e) {
                     if (this.getAttribute('data-page') === 'vocabulary') {
-                        console.log('切換到詞彙管理頁面，初始化詞彙管理器');
+                        console.log('切換到詞彙管理頁面');
                         // 延遲一點初始化，確保頁面已經切換
                         setTimeout(async () => {
                             await initVocabularyManager();
+                            // 初始化後確保計數正確
+                            await updateVocabListCounts();
                         }, 100);
                     }
                 });
             });
         }
+        
+        // 添加詞彙表選擇模態框樣式
+        addWordListSelectModalStyles();
+        
+        // 確保計數在頁面載入時更新
+        setTimeout(async () => {
+            await updateVocabListCounts();
+        }, 500);
     } catch (error) {
         console.error('初始化失敗:', error);
-        alert('系統初始化失敗，請重新整理頁面');
     }
-    
-    // 添加CSS樣式
-    addVocabularyStyles();
-    
-    // 添加詞彙表選擇模態框樣式
-    addWordListSelectModalStyles();
 });
 
 /**
@@ -107,67 +110,43 @@ function initSpeechSynthesis() {
  * 初始化詞彙管理器
  */
 async function initVocabularyManager() {
-    console.log('初始化詞彙管理器', '已初始化:', isVocabManagerInitialized);
-    
-    // 如果已經初始化，避免重複初始化
+    // 檢查是否已經初始化
     if (isVocabManagerInitialized) {
-        console.log('詞彙管理器已經初始化，跳過重複初始化');
+        console.log('詞彙管理器已初始化，刷新數據顯示');
+        await loadVocabularyData();
         return;
     }
     
-    try {
-        // 標記為已初始化
-        isVocabManagerInitialized = true;
-        
-        // 檢查window.db是否存在
-        if (!window.db) {
-            console.error('window.db不存在，嘗試創建...');
-            window.db = {};
-        }
-        
-        // 初始化資料庫
-        if (typeof window.db.init === 'function') {
-            await window.db.init();
-            console.log('資料庫初始化完成');
-        } else {
-            console.error('window.db.init不是函數，可能影響詞彙管理功能');
-            showNotification('初始化失敗：數據庫功能不可用', 'error');
-            return;
-        }
-        
-        // 檢查關鍵數據庫函數是否可用
-        const requiredFunctions = [
-            'getAllWords', 'addWord', 'updateWord', 'deleteWord', 
-            'searchWords', 'getWordsByStatus', 'getWordsInList',
-            'getAllWordLists', 'addWordList', 'deleteWordList'
-        ];
-        
-        const missingFunctions = requiredFunctions.filter(fn => typeof window.db[fn] !== 'function');
-        
-        if (missingFunctions.length > 0) {
-            console.error('缺少必要的數據庫函數:', missingFunctions.join(', '));
-            showNotification('部分功能可能不可用，請刷新頁面', 'warning');
-        }
+    console.log('初始化詞彙管理器');
     
-        // 初始化詞彙列表
-        await initVocabLists();
-        
-        // 確保tools-container元素存在
-        ensureToolsContainerExists();
+    // 初始化詞彙列表
+    await initVocabLists();
     
-        // 初始化詞彙操作
-        await initVocabOperations();
+    // 初始化詞彙操作
+    await initVocabOperations();
+    
+    // 初始化匯入匯出功能
+    await initImportExportFeatures();
+    
+    // 確保工具容器存在
+    ensureToolsContainerExists();
+    
+    // 添加音標測試按鈕
+    addPhoneticTestButton();
+    
+    // 添加樣式
+    addVocabularyStyles();
     
     // 載入詞彙數據
-        await loadVocabularyData();
-        
-        console.log('詞彙管理器初始化完成');
-    } catch (error) {
-        console.error('初始化詞彙管理器失敗:', error);
-        // 初始化失敗時，重置標記允許再次嘗試
-        isVocabManagerInitialized = false;
-        showNotification('初始化詞彙管理器失敗: ' + error.message, 'error');
-    }
+    await loadVocabularyData();
+    
+    // 標記為已初始化
+    isVocabManagerInitialized = true;
+    
+    // 確保計數正確顯示
+    await updateVocabListCounts();
+    
+    console.log('詞彙管理器初始化完成');
 }
 
 /**
@@ -252,19 +231,31 @@ async function initVocabLists() {
         vocabListsContainer.innerHTML = '';
         
         // 添加預設列表
-    const defaultLists = [
+        const defaultLists = [
             { id: 'all', name: '所有單字', icon: 'fas fa-globe' },
             { id: 'notLearned', name: '未學習', icon: 'fas fa-book' },
             { id: 'learning', name: '學習中', icon: 'fas fa-graduation-cap' },
             { id: 'mastered', name: '已掌握', icon: 'fas fa-check-circle' }
         ];
         
+        // 獲取所有單字以計算預設列表的計數
+        const allWords = await window.db.getAllWords();
+        const notLearnedWords = allWords.filter(word => word.status === 'notLearned' || word.status === 'new');
+        const learningWords = allWords.filter(word => word.status === 'learning');
+        const masteredWords = allWords.filter(word => word.status === 'mastered');
+        
+        // 設置預設列表的計數
+        defaultLists[0].count = allWords.length;
+        defaultLists[1].count = notLearnedWords.length;
+        defaultLists[2].count = learningWords.length;
+        defaultLists[3].count = masteredWords.length;
+        
         // 創建預設列表
-    defaultLists.forEach(list => {
+        defaultLists.forEach(list => {
             const listElement = createListItem(list);
             vocabListsContainer.appendChild(listElement);
-    });
-    
+        });
+        
         // 添加分隔線
         const separator = document.createElement('div');
         separator.className = 'list-separator';
@@ -413,76 +404,107 @@ function createListItem(list) {
 }
 
 /**
- * 新增詞彙組
+ * 新增詞彙列表
  */
 async function addNewVocabList(name) {
+    console.log('正在添加新詞彙列表:', name);
+    
+    if (!name || name.trim() === '') {
+        showNotification('詞彙列表名稱不能為空', 'error');
+        return;
+    }
+    
     try {
         const list = {
-            name,
-            icon: 'fas fa-list',
-            createdAt: new Date().toISOString()
+            name: name.trim(),
+            count: 0
         };
         
-        await window.db.addWordList(list);
-        console.log('新增詞彙組成功');
+        const listId = await window.db.addWordList(list);
+        console.log('新詞彙列表添加成功:', listId);
         
-        // 重新初始化詞彙列表
+        // 更新詞彙列表顯示
         await initVocabLists();
         
-        // 更新詞彙表計數
-        await updateVocabListCounts();
+        // 通知其他模組詞彙列表已更新
+        document.dispatchEvent(new CustomEvent('vocabListsUpdated'));
         
+        showNotification('詞彙列表添加成功', 'success');
+        return listId;
     } catch (error) {
-        console.error('新增詞彙組失敗:', error);
-        alert('新增詞彙組失敗，請稍後再試');
+        console.error('添加詞彙列表失敗:', error);
+        showNotification('添加詞彙列表失敗', 'error');
+        return null;
     }
 }
 
 /**
- * 更新詞彙組
+ * 更新詞彙列表
  */
 async function updateVocabList(id, name) {
+    console.log('正在更新詞彙列表:', id, name);
+    
+    if (!name || name.trim() === '') {
+        showNotification('詞彙列表名稱不能為空', 'error');
+        return false;
+    }
+    
     try {
         const list = {
-            id,
-            name,
-            updatedAt: new Date().toISOString()
+            id: id,
+            name: name.trim()
         };
         
         await window.db.updateWordList(list);
-        console.log('更新詞彙組成功');
+        console.log('詞彙列表更新成功');
         
-        // 重新初始化詞彙列表
+        // 更新詞彙列表顯示
         await initVocabLists();
         
+        // 通知其他模組詞彙列表已更新
+        document.dispatchEvent(new CustomEvent('vocabListsUpdated'));
+        
+        showNotification('詞彙列表更新成功', 'success');
+        return true;
     } catch (error) {
-        console.error('更新詞彙組失敗:', error);
-        alert('更新詞彙組失敗，請稍後再試');
+        console.error('更新詞彙列表失敗:', error);
+        showNotification('更新詞彙列表失敗', 'error');
+        return false;
     }
 }
 
 /**
- * 刪除詞彙組
+ * 刪除詞彙列表
  */
 async function deleteVocabList(id) {
+    console.log('正在刪除詞彙列表:', id);
+    
+    if (!confirm('確定要刪除此詞彙列表嗎？這將移除該列表，但不會刪除單字。')) {
+        return false;
+    }
+    
     try {
         await window.db.deleteWordList(id);
-        console.log('刪除詞彙組成功');
+        console.log('詞彙列表刪除成功');
         
-        // 如果當前選中的是被刪除的詞彙組，切換到「所有單字」
-        if (currentVocabList === id) {
-            currentVocabList = 'all';
-        }
-        
-        // 重新初始化詞彙列表
+        // 更新詞彙列表顯示
         await initVocabLists();
         
-        // 重新載入詞彙
-        await loadVocabularyData();
+        // 如果當前正在查看被刪除的列表，則切換到"所有單字"
+        if (currentVocabList === id) {
+            currentVocabList = 'all';
+            await loadVocabularyData();
+        }
         
+        // 通知其他模組詞彙列表已更新
+        document.dispatchEvent(new CustomEvent('vocabListsUpdated'));
+        
+        showNotification('詞彙列表刪除成功', 'success');
+        return true;
     } catch (error) {
-        console.error('刪除詞彙組失敗:', error);
-        alert('刪除詞彙組失敗，請稍後再試');
+        console.error('刪除詞彙列表失敗:', error);
+        showNotification('刪除詞彙列表失敗', 'error');
+        return false;
     }
 }
 
@@ -490,34 +512,68 @@ async function deleteVocabList(id) {
  * 更新詞彙表計數
  */
 async function updateVocabListCounts() {
+    console.log('更新詞彙列表計數');
+    
     try {
-        // 獲取所有單字
-        const allWords = await window.db.getAllWords();
-        
-        // 更新預設列表的計數
-        const notLearned = allWords.filter(w => w.status === 'notLearned').length;
-        const learning = allWords.filter(w => w.status === 'learning').length;
-        const mastered = allWords.filter(w => w.status === 'mastered').length;
-        
-        document.querySelector('[data-list-id="all"] .word-count').textContent = allWords.length;
-        document.querySelector('[data-list-id="notLearned"] .word-count').textContent = notLearned;
-        document.querySelector('[data-list-id="learning"] .word-count').textContent = learning;
-        document.querySelector('[data-list-id="mastered"] .word-count').textContent = mastered;
-        
         // 獲取所有詞彙組
         const lists = await window.db.getAllWordLists();
+        if (!lists || lists.length === 0) return;
+        
+        // 獲取所有單字
+        const allWords = await window.db.getAllWords();
+        if (!allWords || allWords.length === 0) return;
+        
+        // 計算預設列表的計數
+        const notLearnedWords = allWords.filter(word => word.status === 'notLearned' || word.status === 'new');
+        const learningWords = allWords.filter(word => word.status === 'learning');
+        const masteredWords = allWords.filter(word => word.status === 'mastered');
+        
+        // 更新預設列表的計數顯示
+        updateCountDisplay('all', allWords.length);
+        updateCountDisplay('notLearned', notLearnedWords.length);
+        updateCountDisplay('learning', learningWords.length);
+        updateCountDisplay('mastered', masteredWords.length);
         
         // 更新每個詞彙組的計數
+        let updated = false;
         for (const list of lists) {
-            const words = await window.db.getWordsInList(list.id);
-            const countElement = document.querySelector(`[data-list-id="${list.id}"] .word-count`);
-            if (countElement) {
-                countElement.textContent = words.length;
+            // 獲取該詞彙組中的單字數量
+            const wordsInList = await window.db.getWordsInList(list.id);
+            const count = wordsInList ? wordsInList.length : 0;
+            
+            // 更新DOM中的計數顯示
+            updateCountDisplay(list.id, count);
+            
+            // 如果計數有變化，更新詞彙組
+            if (list.count !== count) {
+                list.count = count;
+                await window.db.updateWordList(list);
+                updated = true;
             }
         }
         
+        if (updated) {
+            console.log('詞彙列表計數已更新');
+            // 通知其他模組詞彙列表已更新
+            document.dispatchEvent(new CustomEvent('vocabListsUpdated'));
+        }
     } catch (error) {
-        console.error('更新詞彙表計數失敗:', error);
+        console.error('更新詞彙列表計數失敗:', error);
+    }
+}
+
+/**
+ * 更新DOM中的詞彙列表計數顯示
+ * @param {string|number} listId - 詞彙列表ID
+ * @param {number} count - 計數
+ */
+function updateCountDisplay(listId, count) {
+    const listItem = document.querySelector(`.vocab-list-item[data-list-id="${listId}"]`);
+    if (listItem) {
+        const countElement = listItem.querySelector('.word-count');
+        if (countElement) {
+            countElement.textContent = count;
+        }
     }
 }
 
@@ -3434,209 +3490,113 @@ function addVoiceSettingsStyles() {
  * @param {number} wordId - 要添加的單字ID
  */
 async function addToWordList(wordId) {
-    console.log('添加單字到詞彙表:', wordId);
+    console.log('將單字添加到詞彙列表:', wordId);
+    
+    // 檢查單字是否存在
+    const word = await window.db.getWordById(wordId);
+    if (!word) {
+        showNotification('找不到指定的單字', 'error');
+        return;
+    }
+    
+    // 創建模態框
+    const modalId = 'addToListModal';
+    let modal = document.getElementById(modalId);
+    
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = modalId;
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>選擇詞彙列表</h3>
+                    <button class="close-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>請選擇要將「<strong>${word.word}</strong>」添加到的詞彙列表：</p>
+                    <div id="listOptions" class="list-options">
+                        <p>載入中...</p>
+                    </div>
+                    <div class="form-actions">
+                        <button class="secondary-btn close-modal">取消</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    } else {
+        document.querySelector(`#${modalId} .modal-header h3`).textContent = '選擇詞彙列表';
+        document.querySelector(`#${modalId} .modal-body p`).innerHTML = `請選擇要將「<strong>${word.word}</strong>」添加到的詞彙列表：`;
+    }
+    
+    // 顯示模態框
+    modal.classList.add('active');
+    document.getElementById('modalOverlay').classList.add('active');
+    document.body.classList.add('modal-open');
+    
+    // 載入詞彙列表選項
+    const listOptions = document.getElementById('listOptions');
+    listOptions.innerHTML = '<p>載入中...</p>';
     
     try {
-        // 首先獲取單字信息
-        let word;
+        const lists = await window.db.getAllWordLists();
         
-        if (filteredWords && Array.isArray(filteredWords)) {
-            word = filteredWords.find(w => w.id === wordId);
-        }
-        
-        if (!word) {
-            if (window.db && typeof window.db.getWordById === 'function') {
-                word = await window.db.getWordById(wordId);
-            } else {
-                const allWords = await window.db.getAllWords();
-                word = allWords.find(w => w.id === wordId);
-            }
-        }
-        
-        if (!word) {
-            console.error(`找不到ID為 ${wordId} 的單字`);
-            showNotification('找不到指定的單字', 'error');
+        if (!lists || lists.length === 0) {
+            listOptions.innerHTML = '<p>沒有可用的詞彙列表。請先創建一個新的詞彙列表。</p>';
             return;
         }
         
-        // 獲取所有詞彙組
-        const wordLists = await window.db.getAllWordLists();
+        listOptions.innerHTML = '';
         
-        // 創建模態框
-        const modal = document.createElement('div');
-        modal.id = 'wordListSelectModal';
-        modal.className = 'modal';
-        modal.style.display = 'block';
-        
-        // 創建模態框內容
-        const modalContent = document.createElement('div');
-        modalContent.className = 'modal-content';
-        
-        // 添加標題
-        const header = document.createElement('div');
-        header.className = 'modal-header';
-        header.innerHTML = `
-            <h3>選擇詞彙表</h3>
-            <button class="close-modal">&times;</button>
-        `;
-        
-        // 添加正文內容
-        const body = document.createElement('div');
-        body.className = 'modal-body';
-        
-        // 如果沒有任何詞彙組，顯示創建新詞彙組的提示
-        if (wordLists.length === 0) {
-            body.innerHTML = `
-                <div class="empty-lists-message">
-                    <p>目前沒有詞彙表，請先創建一個新的詞彙表</p>
+        lists.forEach(list => {
+            const listItem = document.createElement('div');
+            listItem.className = 'list-option';
+            listItem.innerHTML = `
+                <div class="list-name">
+                    <i class="fas fa-list-ul"></i>
+                    ${list.name}
                 </div>
             `;
-        } else {
-            // 創建詞彙組列表
-            const listContainer = document.createElement('div');
-            listContainer.className = 'word-lists-container';
             
-            wordLists.forEach(list => {
-                const listItem = document.createElement('div');
-                listItem.className = 'word-list-item';
-                listItem.innerHTML = `
-                    <div class="list-name">${list.name}</div>
-                    <button class="btn secondary select-list-btn" data-list-id="${list.id}">
-                        選擇
-                    </button>
-                `;
-                listContainer.appendChild(listItem);
-            });
-            
-            body.appendChild(listContainer);
-        }
-        
-        // 添加"創建新詞彙組"區域
-        const newListSection = document.createElement('div');
-        newListSection.className = 'new-list-section';
-        newListSection.innerHTML = `
-            <h4>創建新詞彙表</h4>
-            <div class="new-list-input-group">
-                <input type="text" id="newListName" class="form-control" placeholder="輸入詞彙表名稱">
-                <button id="createNewListBtn" class="btn primary">創建並添加</button>
-            </div>
-        `;
-        body.appendChild(newListSection);
-        
-        // 添加底部按鈕
-        const footer = document.createElement('div');
-        footer.className = 'modal-footer';
-        footer.innerHTML = `
-            <button id="cancelAddToListBtn" class="btn secondary">取消</button>
-        `;
-        
-        // 組裝模態框
-        modalContent.appendChild(header);
-        modalContent.appendChild(body);
-        modalContent.appendChild(footer);
-        modal.appendChild(modalContent);
-        
-        // 添加遮罩層
-        let overlay = document.getElementById('modalOverlay');
-        if (!overlay) {
-            overlay = document.createElement('div');
-            overlay.id = 'modalOverlay';
-            overlay.className = 'modal-overlay';
-            document.body.appendChild(overlay);
-        }
-        overlay.style.display = 'block';
-        
-        // 添加到文檔
-        document.body.appendChild(modal);
-        
-        // 添加動畫類
-        setTimeout(() => {
-            modal.classList.add('active');
-            overlay.classList.add('active');
-        }, 10);
-        
-        // 綁定關閉按鈕事件
-        const closeBtn = modal.querySelector('.close-modal');
-        const cancelBtn = document.getElementById('cancelAddToListBtn');
-        
-        const closeModal = () => {
-            modal.classList.remove('active');
-            overlay.classList.remove('active');
-            setTimeout(() => {
-                modal.remove();
-                overlay.style.display = 'none';
-            }, 300);
-        };
-        
-        closeBtn.addEventListener('click', closeModal);
-        cancelBtn.addEventListener('click', closeModal);
-        overlay.addEventListener('click', closeModal);
-        
-        // 綁定選擇詞彙組按鈕事件
-        const selectBtns = modal.querySelectorAll('.select-list-btn');
-        selectBtns.forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const listId = parseInt(btn.getAttribute('data-list-id'));
+            listItem.addEventListener('click', async () => {
                 try {
-                    // 添加單字到詞彙組
-                    await window.db.addWordToList(wordId, listId);
+                    await window.db.addWordToList(wordId, list.id);
                     
-                    // 獲取詞彙組名稱
-                    const list = wordLists.find(l => l.id === listId);
-                    const listName = list ? list.name : '詞彙表';
-                    
-                    showNotification(`單字「${word.word}」已添加到「${listName}」`, 'success');
-                    closeModal();
-                    
-                    // 更新UI
+                    // 更新詞彙列表計數
                     await updateVocabListCounts();
+                    
+                    // 通知其他模組詞彙列表已更新
+                    document.dispatchEvent(new CustomEvent('vocabListsUpdated'));
+                    
+                    // 關閉模態框
+                    modal.classList.remove('active');
+                    document.getElementById('modalOverlay').classList.remove('active');
+                    document.body.classList.remove('modal-open');
+                    
+                    showNotification(`成功將「${word.word}」添加到「${list.name}」詞彙列表`, 'success');
                 } catch (error) {
-                    console.error('添加單字到詞彙組失敗:', error);
-                    showNotification('添加失敗，請稍後再試', 'error');
+                    console.error('添加單字到詞彙列表失敗:', error);
+                    showNotification('操作失敗，請稍後再試', 'error');
                 }
             });
-        });
-        
-        // 綁定創建新詞彙組按鈕事件
-        const createNewListBtn = document.getElementById('createNewListBtn');
-        const newListNameInput = document.getElementById('newListName');
-        
-        createNewListBtn.addEventListener('click', async () => {
-            const listName = newListNameInput.value.trim();
-            if (!listName) {
-                showNotification('請輸入詞彙表名稱', 'warning');
-                return;
-            }
             
-            try {
-                // 創建新詞彙組
-                const list = {
-                    name: listName,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
-                };
-                
-                const listId = await window.db.addWordList(list);
-                
-                // 添加單字到新詞彙組
-                await window.db.addWordToList(wordId, listId);
-                
-                showNotification(`單字「${word.word}」已添加到新詞彙表「${listName}」`, 'success');
-                closeModal();
-                
-                // 更新UI
-                await initVocabLists(); // 重新載入詞彙列表
-                await updateVocabListCounts();
-            } catch (error) {
-                console.error('創建詞彙組並添加單字失敗:', error);
-                showNotification('操作失敗，請稍後再試', 'error');
-            }
+            listOptions.appendChild(listItem);
         });
         
     } catch (error) {
-        console.error('顯示詞彙表選擇模態框失敗:', error);
-        showNotification('操作失敗，請稍後再試', 'error');
+        console.error('獲取詞彙列表失敗:', error);
+        listOptions.innerHTML = '<p>載入詞彙列表失敗，請稍後再試。</p>';
     }
+    
+    // 綁定關閉按鈕
+    modal.querySelectorAll('.close-modal').forEach(btn => {
+        btn.addEventListener('click', () => {
+            modal.classList.remove('active');
+            document.getElementById('modalOverlay').classList.remove('active');
+            document.body.classList.remove('modal-open');
+        });
+    });
 }
 
 /**
@@ -3696,8 +3656,8 @@ function addWordListSelectModalStyles() {
             font-style: italic;
         }
     `;
-    document.head.appendChild(styleElement);
-} 
+    document.head.appendChild(styleElement); 
+}
 
 /**
  * 清空詞彙組中的所有單字
