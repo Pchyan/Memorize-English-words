@@ -11,6 +11,9 @@ let matchedPairs = 0;
 let matchingTimer = null;
 let matchingTimeLeft = 60;
 let firstSelected = null;
+let practiceTimer = null;
+let practiceTimeLeft = 0;
+let totalPracticeTime = 0;
 
 // 在文檔加載完成後初始化練習模組
 document.addEventListener('DOMContentLoaded', function() {
@@ -51,7 +54,7 @@ document.addEventListener('DOMContentLoaded', function() {
 async function initPractice() {
     console.log('初始化練習頁面');
     
-    // 添加樣式
+    // 添加練習樣式
     addPracticeStyles();
     
     // 確保獲取到詞彙數據
@@ -63,7 +66,7 @@ async function initPractice() {
     initPracticeTypeSelector();
     
     // 初始化列表選擇器
-    initPracticeListSelector();
+    await initPracticeListSelector();
     
     // 初始化開始練習按鈕
     initStartPracticeButton();
@@ -73,6 +76,9 @@ async function initPractice() {
     initMultipleChoicePractice();
     initMatchingGame();
     initFillInBlankPractice();
+    
+    // 初始化練習計時器元素
+    initPracticeTimer();
     
     // 確保一開始所有練習模式都隱藏
     hideAllPracticeModes();
@@ -143,18 +149,17 @@ function initPracticeTypeSelector() {
 /**
  * 初始化詞彙表選擇器
  */
-function initPracticeListSelector() {
+async function initPracticeListSelector() {
     const practiceListSelect = document.getElementById('practiceListSelect');
     if (!practiceListSelect) {
         console.error('找不到練習詞彙表選擇器元素');
-        return;
+        return false;
     }
     
     // 從詞彙管理中獲取詞彙表
-    updatePracticeListOptions().catch(error => {
-        console.error('初始化詞彙表選擇器出錯：', error);
-        showNotification('無法加載詞彙表數據', 'error');
-    });
+    await updatePracticeListOptions();
+    
+    return true;
 }
 
 /**
@@ -518,6 +523,10 @@ function startSpellingPractice() {
         return;
     }
     
+    // 設置計時器
+    totalPracticeTime = practiceWords.length * 30; // 每個單字 30 秒
+    startPracticeTimer('spellingPractice');
+    
     // 顯示第一個問題
     showSpellingQuestion(0);
 }
@@ -692,6 +701,10 @@ function startMultipleChoicePractice() {
         multipleMode.classList.add('active');
     }
     
+    // 設置計時器
+    totalPracticeTime = practiceWords.length * 20; // 每個單字 20 秒
+    startPracticeTimer('multiplePractice');
+    
     // 顯示第一個問題
     showMultipleChoiceQuestion(0);
 }
@@ -765,16 +778,48 @@ function generateMultipleChoiceOptions(word) {
     
     // 從其他單字中隨機選擇三個不同的錯誤選項
     const wrongOptions = [];
-    const allMeanings = window.appData.vocabulary.map(w => w.meaning);
     
-    // 打亂所有意思
-    const shuffledMeanings = shuffleArray(allMeanings);
+    // 首先從當前練習詞彙中尋找不同的選項
+    const otherPracticeWords = practiceWords.filter(w => w.id !== word.id && w.meaning !== correctAnswer);
+    const practiceWordMeanings = otherPracticeWords.map(w => w.meaning);
     
-    // 選擇三個不同於正確答案的選項
-    for (const meaning of shuffledMeanings) {
-        if (meaning !== correctAnswer && !wrongOptions.includes(meaning)) {
-            wrongOptions.push(meaning);
-            if (wrongOptions.length === 3) break;
+    // 如果當前練習詞彙不足以提供三個不同的錯誤選項，則從 appData 中獲取
+    if (practiceWordMeanings.length < 3) {
+        // 使用所有可用的詞彙作為選項來源
+        const allMeanings = window.appData.vocabulary && window.appData.vocabulary.length > 0 
+            ? window.appData.vocabulary.map(w => w.meaning) 
+            : [];
+        
+        // 打亂所有意思
+        const shuffledMeanings = shuffleArray([...allMeanings]);
+        
+        // 首先添加練習詞彙中可用的不同選項
+        for (const meaning of practiceWordMeanings) {
+            if (!wrongOptions.includes(meaning)) {
+                wrongOptions.push(meaning);
+                if (wrongOptions.length === 3) break;
+            }
+        }
+        
+        // 如果還需要更多選項，從所有詞彙中選擇
+        if (wrongOptions.length < 3) {
+            for (const meaning of shuffledMeanings) {
+                if (meaning !== correctAnswer && !wrongOptions.includes(meaning)) {
+                    wrongOptions.push(meaning);
+                    if (wrongOptions.length === 3) break;
+                }
+            }
+        }
+    } else {
+        // 如果練習詞彙足夠，直接從中隨機選擇
+        const shuffledPracticeMeanings = shuffleArray([...practiceWordMeanings]);
+        
+        // 選擇三個不同的選項
+        for (const meaning of shuffledPracticeMeanings) {
+            if (!wrongOptions.includes(meaning)) {
+                wrongOptions.push(meaning);
+                if (wrongOptions.length === 3) break;
+            }
         }
     }
     
@@ -914,6 +959,10 @@ function startFillInBlankPractice() {
         fillMode.classList.add('active');
     }
     
+    // 設置計時器
+    totalPracticeTime = practiceWords.length * 40; // 每個單字 40 秒
+    startPracticeTimer('fillPractice');
+    
     // 顯示第一個問題
     showFillQuestion(0);
 }
@@ -923,15 +972,6 @@ function startFillInBlankPractice() {
  * @param {number} index - 問題索引
  */
 function showFillQuestion(index) {
-    // 檢查 API KEY 是否存在
-    const API_KEY = localStorage.getItem('geminiApiKey');
-    
-    if (!API_KEY) {
-        showNotification('需要設置 Google Gemini API Key 才能使用填空練習功能', 'error');
-        hideAllPracticeModes();
-        return;
-    }
-    
     if (practiceWords.length === 0 || index < 0 || index >= practiceWords.length) {
         return;
     }
@@ -1393,9 +1433,110 @@ function updateMatchingTime() {
 }
 
 /**
+ * 初始化練習計時器元素
+ */
+function initPracticeTimer() {
+    // 為每個練習模式添加計時器 UI
+    const modes = ['spellingPractice', 'multiplePractice', 'fillPractice'];
+    
+    modes.forEach(mode => {
+        const navigationElem = document.querySelector(`#${mode} .practice-navigation`);
+        
+        if (navigationElem && !document.querySelector(`#${mode} .practice-timer-container`)) {
+            // 創建計時器容器
+            const timerContainer = document.createElement('div');
+            timerContainer.className = 'practice-timer-container';
+            timerContainer.innerHTML = `
+                <div class="practice-timer">
+                    <span id="${mode}Time">00:00</span>
+                </div>
+                <div class="practice-timer-progress-container">
+                    <div class="practice-timer-progress" id="${mode}Progress"></div>
+                </div>
+            `;
+            
+            // 插入到導航元素之前
+            navigationElem.parentNode.insertBefore(timerContainer, navigationElem);
+        }
+    });
+    
+    console.log('練習計時器元素初始化完成');
+}
+
+/**
+ * 開始練習計時器
+ * @param {string} mode - 練習模式 ID
+ */
+function startPracticeTimer(mode) {
+    // 清除先前的計時器
+    if (practiceTimer) {
+        clearInterval(practiceTimer);
+    }
+    
+    // 重置計時器
+    practiceTimeLeft = totalPracticeTime;
+    updatePracticeTimer(mode);
+    
+    // 設置新計時器
+    practiceTimer = setInterval(() => {
+        practiceTimeLeft--;
+        updatePracticeTimer(mode);
+        
+        // 時間到
+        if (practiceTimeLeft <= 0) {
+            clearInterval(practiceTimer);
+            showNotification('時間到！練習結束', 'warning');
+            showPracticeResult();
+        }
+    }, 1000);
+}
+
+/**
+ * 更新練習計時器
+ * @param {string} mode - 練習模式 ID
+ */
+function updatePracticeTimer(mode) {
+    // 更新時間顯示
+    const timeElem = document.getElementById(`${mode}Time`);
+    if (timeElem) {
+        const minutes = Math.floor(practiceTimeLeft / 60);
+        const seconds = practiceTimeLeft % 60;
+        timeElem.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+    
+    // 更新進度條
+    const progressElem = document.getElementById(`${mode}Progress`);
+    if (progressElem) {
+        const percentage = (practiceTimeLeft / totalPracticeTime) * 100;
+        progressElem.style.width = `${percentage}%`;
+        
+        // 根據剩餘時間調整顏色
+        if (percentage > 50) {
+            progressElem.style.backgroundColor = '#4CAF50'; // 綠色
+        } else if (percentage > 20) {
+            progressElem.style.backgroundColor = '#FFC107'; // 黃色
+        } else {
+            progressElem.style.backgroundColor = '#F44336'; // 紅色
+        }
+    }
+}
+
+/**
  * 顯示練習結果
  */
 function showPracticeResult() {
+    // 清除練習計時器
+    if (practiceTimer) {
+        clearInterval(practiceTimer);
+        practiceTimer = null;
+    }
+    
+    // 清除配對遊戲計時器
+    if (matchingTimer) {
+        clearInterval(matchingTimer);
+        matchingTimer = null;
+    }
+    
     let message = '';
     
     // 根據練習類型和分數生成訊息
@@ -1787,6 +1928,34 @@ function addPracticeStyles() {
         
         .generate-btn i {
             font-size: 0.9em;
+        }
+        
+        /* 計時器樣式 */
+        .practice-timer-container {
+            margin: 15px 0;
+            text-align: center;
+        }
+        
+        .practice-timer {
+            font-size: 1.2em;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        
+        .practice-timer-progress-container {
+            width: 100%;
+            height: 8px;
+            background-color: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .practice-timer-progress {
+            height: 100%;
+            background-color: #4CAF50;
+            width: 100%;
+            border-radius: 4px;
+            transition: width 1s ease, background-color 1s ease;
         }
     `;
     document.head.appendChild(styleElement);
