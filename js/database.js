@@ -704,7 +704,7 @@ async function importBasic2005Words() {
 async function loadBasic2005Words() {
     try {
         console.log('開始從文件讀取國中基礎2005個單字...');
-        const response = await fetch('basic2005.txt');
+        const response = await fetch('basic2005words.txt');
         if (!response.ok) {
             throw new Error(`讀取文件失敗，狀態碼: ${response.status}`);
         }
@@ -712,17 +712,19 @@ async function loadBasic2005Words() {
         const data = await response.text();
         console.log('已讀取文件內容，開始解析...');
         
-        // 使用正則表達式解析文件內容
-        const wordRegex = /\{\s*word:\s*"(.+?)"\s*,\s*partOfSpeech:\s*"(.+?)"\s*,\s*meaning:\s*"(.+?)"\s*\}/g;
+        // 解析文件內容 - 新格式：數字序號, 單字, 詞性, 意思
         const words2005 = [];
-        let match;
+        const lines = data.split('\n').filter(line => line.trim() !== '');
         
-        while ((match = wordRegex.exec(data)) !== null) {
-            words2005.push({
-                word: match[1],
-                partOfSpeech: match[2],
-                meaning: match[3]
-            });
+        for (const line of lines) {
+            const parts = line.split(',').map(part => part.trim());
+            if (parts.length >= 4) {
+                words2005.push({
+                    word: parts[1],
+                    partOfSpeech: parts[2],
+                    meaning: parts[3]
+                });
+            }
         }
         
         console.log(`已解析出${words2005.length}個單字`);

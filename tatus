@@ -1,0 +1,48 @@
+warning: in the working copy of 'js/database.js', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/js/database.js b/js/database.js[m
+[1mindex d7557f9..14eb7d9 100644[m
+[1m--- a/js/database.js[m
+[1m+++ b/js/database.js[m
+[36m@@ -704,7 +704,7 @@[m [masync function importBasic2005Words() {[m
+ async function loadBasic2005Words() {[m
+     try {[m
+         console.log('開始從文件讀取國中基礎2005個單字...');[m
+[31m-        const response = await fetch('basic2005.txt');[m
+[32m+[m[32m        const response = await fetch('basic2005words.txt');[m
+         if (!response.ok) {[m
+             throw new Error(`讀取文件失敗，狀態碼: ${response.status}`);[m
+         }[m
+[36m@@ -712,18 +712,22 @@[m [masync function loadBasic2005Words() {[m
+         const data = await response.text();[m
+         console.log('已讀取文件內容，開始解析...');[m
+         [m
+[31m-        // 使用正則表達式解析文件內容[m
+[31m-        const wordRegex = /\{\s*word:\s*"(.+?)"\s*,\s*partOfSpeech:\s*"(.+?)"\s*,\s*meaning:\s*"(.+?)"\s*\}/g;[m
+[32m+[m[32m        // 解析CSV格式的數據[m
+[32m+[m[32m        const lines = data.split('\n').filter(line => line.trim() !== '');[m
+         const words2005 = [];[m
+[31m-        let match;[m
+[31m-        [m
+[31m-        while ((match = wordRegex.exec(data)) !== null) {[m
+[31m-            words2005.push({[m
+[31m-                word: match[1],[m
+[31m-                partOfSpeech: match[2],[m
+[31m-                meaning: match[3][m
+[31m-            });[m
+[31m-        }[m
+[32m+[m[41m        [m
+[32m+[m[32m        lines.forEach(line => {[m
+[32m+[m[32m            // 分割每行的四個欄位: 編號, 單字, 詞性, 意思[m
+[32m+[m[32m            const parts = line.split(',').map(part => part.trim());[m
+[32m+[m[41m            [m
+[32m+[m[32m            if (parts.length >= 4) {[m
+[32m+[m[32m                words2005.push({[m
+[32m+[m[32m                    word: parts[1],[m
+[32m+[m[32m                    partOfSpeech: parts[2],[m
+[32m+[m[32m                    meaning: parts[3][m
+[32m+[m[32m                });[m
+[32m+[m[32m            }[m
+[32m+[m[32m        });[m
+         [m
+         console.log(`已解析出${words2005.length}個單字`);[m
+         return words2005;[m

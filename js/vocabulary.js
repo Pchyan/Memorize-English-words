@@ -2432,9 +2432,10 @@ async function importVocabulary(file) {
         // 檢查文件類型
         const fileExtension = file.name.split('.').pop().toLowerCase();
         
-        if (fileExtension !== 'json' && fileExtension !== 'csv') {
+        if (fileExtension !== 'json' && fileExtension !== 'csv' && fileExtension !== 'txt') {
             console.error('不支持的文件格式:', fileExtension);
             showNotification('匯入失敗：不支持的文件格式', 'error');
+            isImporting = false;
             return;
         }
         
@@ -2463,6 +2464,7 @@ async function importVocabulary(file) {
             } catch (error) {
                 console.error('解析JSON失敗:', error);
                 showNotification('匯入失敗：JSON格式錯誤', 'error');
+                isImporting = false;
                 return;
             }
         } else if (fileExtension === 'csv') {
@@ -2471,6 +2473,17 @@ async function importVocabulary(file) {
             } catch (error) {
                 console.error('解析CSV失敗:', error);
                 showNotification('匯入失敗：CSV格式錯誤', 'error');
+                isImporting = false;
+                return;
+            }
+        } else if (fileExtension === 'txt') {
+            try {
+                // 使用與basic2005words.txt相同的格式進行解析
+                words = parseTXT(content);
+            } catch (error) {
+                console.error('解析TXT失敗:', error);
+                showNotification('匯入失敗：TXT格式錯誤', 'error');
+                isImporting = false;
                 return;
             }
         }
@@ -2479,16 +2492,32 @@ async function importVocabulary(file) {
         if (words.length === 0) {
             console.warn('匯入文件不包含任何詞彙');
             showNotification('匯入文件不包含任何詞彙', 'warning');
+            isImporting = false;
             return;
         }
         
-        const result = await processImportedWords(words);
+        // 顯示詞彙組選擇對話框
+        const selectedListId = await showWordListSelectionDialog(words.length);
+        if (!selectedListId) {
+            console.log('用戶取消了匯入操作');
+            showNotification('匯入已取消', 'info');
+            isImporting = false;
+            return;
+        }
+        
+        // 處理匯入的詞彙並加入到所選詞彙組
+        const result = await processImportedWords(words, selectedListId);
         
         // 顯示結果
         if (result.success) {
             showNotification(`匯入成功！新增: ${result.added} 個，更新: ${result.updated} 個，跳過: ${result.skipped} 個`, 'success');
             // 重新加載詞彙數據
-            loadVocabularyData();
+            await loadVocabularyData();
+            // 更新詞彙組計數
+            await updateVocabListCounts();
+            
+            // 自動選擇剛剛匯入的詞彙組
+            selectVocabList(selectedListId);
         } else {
             showNotification(`匯入過程中發生錯誤: ${result.error}`, 'error');
         }
@@ -2496,11 +2525,8 @@ async function importVocabulary(file) {
         console.error('匯入詞彙失敗:', error);
         showNotification('匯入詞彙失敗: ' + error.message, 'error');
     } finally {
-        // 釋放匯入鎖定
-        setTimeout(() => {
-            isImporting = false;
-            console.log('匯入鎖定已釋放');
-        }, 500); // 添加短暫延遲，確保用戶不會立即再次點擊
+        // 解除鎖定狀態
+        isImporting = false;
     }
 }
 
@@ -2546,36 +2572,190 @@ function parseCSV(csvContent) {
 }
 
 /**
- * 處理匯入的詞彙
- * @param {Array} words - 要處理的詞彙陣列
- * @returns {Promise} - 處理後的詞彙陣列
+ * 解析 TXT 文件內容 (支援與basic2005words.txt相同的格式)
+ * @param {string} content - TXT 文件內容
+ * @returns {Array} - 解析後的詞彙陣列
  */
-async function processImportedWords(words) {
-    const existingWords = window.appData.vocabulary;
-    const processedWords = [];
+function parseTXT(content) {
+    const lines = content.split('\n').filter(line => line.trim() !== '');
+    const words = [];
     
-    for (const word of words) {
-        // 檢查是否已存在相同的單字
-        const existingWord = existingWords.find(w => w.word.toLowerCase() === word.word.toLowerCase());
-        
-        if (existingWord) {
-            // 如果存在，更新現有單字
-            Object.assign(existingWord, word);
-            processedWords.push(existingWord);
-        } else {
-            // 如果不存在，添加為新單字
-            const newWord = {
-                ...word,
-                id: Math.max(0, ...existingWords.map(w => w.id)) + 1,
-                status: word.status || 'new',
-                lastReviewed: null,
-                nextReview: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-            };
-            processedWords.push(newWord);
+    for (const line of lines) {
+        const parts = line.split(',').map(part => part.trim());
+        if (parts.length >= 4) {
+            words.push({
+                word: parts[1],
+                partOfSpeech: parts[2],
+                meaning: parts[3],
+                examples: '',
+                status: 'notLearned'
+            });
         }
     }
     
-    return processedWords;
+    console.log(`從TXT文件解析出 ${words.length} 個單字`);
+    return words;
+}
+
+/**
+ * 處理匯入的詞彙
+ * @param {Array} words - 要處理的詞彙陣列
+ * @param {number} listId - 目標詞彙組ID
+ * @returns {Promise<Object>} - 處理結果
+ */
+async function processImportedWords(words, listId) {
+    try {
+        // 獲取現有單字以避免重複
+        const existingWords = await window.db.getAllWords();
+        
+        let addedCount = 0;
+        let updatedCount = 0;
+        let skippedCount = 0;
+        
+        // 顯示進度條
+        const progressContainer = document.createElement('div');
+        progressContainer.className = 'progress-container';
+        progressContainer.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        `;
+        
+        const progressBox = document.createElement('div');
+        progressBox.style.cssText = `
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            width: 80%;
+            max-width: 500px;
+            text-align: center;
+        `;
+        
+        const progressTitle = document.createElement('h3');
+        progressTitle.textContent = '處理單字...';
+        progressTitle.style.marginBottom = '15px';
+        
+        const progressStatus = document.createElement('div');
+        progressStatus.id = 'import-status';
+        progressStatus.textContent = `處理中: 0/${words.length}`;
+        progressStatus.style.marginBottom = '10px';
+        
+        const progressBar = document.createElement('div');
+        progressBar.style.cssText = `
+            width: 100%;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+            overflow: hidden;
+        `;
+        
+        const progressFill = document.createElement('div');
+        progressFill.id = 'progress-fill';
+        progressFill.style.cssText = `
+            height: 20px;
+            width: 0%;
+            background-color: #4CAF50;
+            transition: width 0.3s;
+        `;
+        
+        progressBar.appendChild(progressFill);
+        progressBox.appendChild(progressTitle);
+        progressBox.appendChild(progressStatus);
+        progressBox.appendChild(progressBar);
+        progressContainer.appendChild(progressBox);
+        document.body.appendChild(progressContainer);
+        
+        const updateProgress = (percent, message) => {
+            const fill = document.getElementById('progress-fill');
+            const status = document.getElementById('import-status');
+            if (fill) fill.style.width = `${percent}%`;
+            if (status) status.textContent = message;
+        };
+        
+        const totalWords = words.length;
+        
+        for (let i = 0; i < words.length; i++) {
+            const word = words[i];
+            
+            // 更新進度
+            const progress = Math.floor((i / totalWords) * 100);
+            updateProgress(progress, `處理中: ${i+1}/${totalWords} (${progress}%)`);
+            
+            try {
+                // 檢查單字是否已存在
+                const existingWord = existingWords.find(w => w.word.toLowerCase() === word.word.toLowerCase());
+                
+                let wordId;
+                
+                if (existingWord) {
+                    // 如果單字已存在，只需更新它的資訊
+                    wordId = existingWord.id;
+                    
+                    // 合併單字資訊
+                    const updatedWord = {
+                        ...existingWord,
+                        partOfSpeech: word.partOfSpeech || existingWord.partOfSpeech,
+                        meaning: word.meaning || existingWord.meaning,
+                        examples: word.examples || existingWord.examples,
+                        updatedAt: new Date().toISOString()
+                    };
+                    
+                    // 更新單字
+                    await window.db.updateWord(updatedWord);
+                    updatedCount++;
+                } else {
+                    // 如果單字不存在，創建新單字
+                    const newWord = {
+                        word: word.word,
+                        phonetic: word.phonetic || '',
+                        partOfSpeech: word.partOfSpeech || '',
+                        meaning: word.meaning || '',
+                        examples: word.examples || '',
+                        status: word.status || 'notLearned',
+                        createdAt: new Date().toISOString()
+                    };
+                    
+                    // 添加單字
+                    wordId = await window.db.addWord(newWord);
+                    addedCount++;
+                }
+                
+                // 將單字關聯到詞彙組
+                if (wordId && listId) {
+                    await window.db.addWordToList(wordId, listId);
+                }
+            } catch (error) {
+                console.error(`處理單字 "${word.word}" 時出錯:`, error);
+                skippedCount++;
+            }
+        }
+        
+        // 關閉進度條
+        setTimeout(() => {
+            document.body.removeChild(progressContainer);
+        }, 1000);
+        
+        return {
+            success: true,
+            added: addedCount,
+            updated: updatedCount,
+            skipped: skippedCount,
+            total: words.length
+        };
+    } catch (error) {
+        console.error('處理匯入詞彙時出錯:', error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
 }
 
 /**
@@ -4056,5 +4236,266 @@ async function getCambridgePronunciation(word) {
     console.error("取得音標時發生錯誤:", error);
     return null;
   }
+}
+
+/**
+ * 顯示詞彙組選擇對話框
+ * @param {number} wordCount - 要匯入的單字數量
+ * @returns {Promise<number|null>} - 選擇的詞彙組ID或null(表示取消)
+ */
+async function showWordListSelectionDialog(wordCount) {
+    return new Promise(async (resolve) => {
+        // 創建模態框背景
+        const modalBackground = document.createElement('div');
+        modalBackground.className = 'modal-background';
+        modalBackground.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        `;
+        
+        // 創建模態框內容
+        const modalContent = document.createElement('div');
+        modalContent.className = 'modal-content';
+        modalContent.style.cssText = `
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        `;
+        
+        // 創建標題
+        const modalTitle = document.createElement('h3');
+        modalTitle.textContent = `匯入 ${wordCount} 個單字`;
+        modalTitle.style.marginBottom = '15px';
+        
+        // 創建說明文字
+        const modalDescription = document.createElement('p');
+        modalDescription.textContent = '請選擇要匯入到哪個詞彙組，或創建新的詞彙組：';
+        modalDescription.style.marginBottom = '15px';
+        
+        // 獲取所有詞彙組
+        const allWordLists = await window.db.getAllWordLists();
+        
+        // 創建詞彙組列表
+        const listContainer = document.createElement('div');
+        listContainer.style.cssText = `
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            padding: 10px;
+        `;
+        
+        // 添加現有詞彙組選項
+        allWordLists.forEach(list => {
+            const listItem = document.createElement('div');
+            listItem.className = 'list-select-item';
+            listItem.style.cssText = `
+                display: flex;
+                align-items: center;
+                padding: 10px;
+                border-radius: 5px;
+                cursor: pointer;
+                transition: background-color 0.2s;
+            `;
+            listItem.setAttribute('data-list-id', list.id);
+            listItem.setAttribute('data-selected', 'false');
+            
+            const icon = document.createElement('i');
+            icon.className = list.icon || 'fas fa-book';
+            icon.style.marginRight = '10px';
+            
+            const name = document.createElement('span');
+            name.textContent = list.name;
+            
+            listItem.appendChild(icon);
+            listItem.appendChild(name);
+            
+            listItem.addEventListener('click', () => {
+                // 移除其他選項的選中狀態
+                const allItems = listContainer.querySelectorAll('.list-select-item');
+                allItems.forEach(item => {
+                    item.style.backgroundColor = 'transparent';
+                    item.style.fontWeight = 'normal';
+                    item.setAttribute('data-selected', 'false');
+                });
+                
+                // 設置當前選項的選中狀態
+                listItem.style.backgroundColor = '#e0f0ff';
+                listItem.style.fontWeight = 'bold';
+                listItem.setAttribute('data-selected', 'true');
+                
+                // 禁用新建詞彙組輸入框
+                newListInput.disabled = true;
+                newListInput.value = '';
+            });
+            
+            // 添加懸停效果
+            listItem.addEventListener('mouseover', () => {
+                if (listItem.getAttribute('data-selected') !== 'true') {
+                    listItem.style.backgroundColor = '#f0f0f0';
+                }
+            });
+            
+            listItem.addEventListener('mouseout', () => {
+                if (listItem.getAttribute('data-selected') !== 'true') {
+                    listItem.style.backgroundColor = 'transparent';
+                }
+            });
+            
+            listContainer.appendChild(listItem);
+        });
+        
+        // 創建新詞彙組輸入區域
+        const newListContainer = document.createElement('div');
+        newListContainer.style.cssText = `
+            margin-bottom: 20px;
+        `;
+        
+        const newListLabel = document.createElement('label');
+        newListLabel.textContent = '或輸入新詞彙組名稱：';
+        newListLabel.style.display = 'block';
+        newListLabel.style.marginBottom = '5px';
+        
+        const newListInput = document.createElement('input');
+        newListInput.type = 'text';
+        newListInput.className = 'new-list-input';
+        newListInput.placeholder = '例如：我的單字列表';
+        newListInput.style.cssText = `
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        `;
+        
+        newListInput.addEventListener('input', () => {
+            if (newListInput.value.trim()) {
+                // 如果用戶在輸入新詞彙組，清除其他選項的選中狀態
+                const allItems = listContainer.querySelectorAll('.list-select-item');
+                allItems.forEach(item => {
+                    item.style.backgroundColor = 'transparent';
+                    item.style.fontWeight = 'normal';
+                    item.setAttribute('data-selected', 'false');
+                });
+            }
+        });
+        
+        newListContainer.appendChild(newListLabel);
+        newListContainer.appendChild(newListInput);
+        
+        // 創建按鈕區域
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = `
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        `;
+        
+        const cancelButton = document.createElement('button');
+        cancelButton.textContent = '取消';
+        cancelButton.className = 'btn secondary';
+        cancelButton.style.cssText = `
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+        `;
+        
+        const importButton = document.createElement('button');
+        importButton.textContent = '匯入';
+        importButton.className = 'btn primary';
+        importButton.style.cssText = `
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+        `;
+        
+        cancelButton.addEventListener('click', () => {
+            document.body.removeChild(modalBackground);
+            resolve(null);
+        });
+        
+        importButton.addEventListener('click', async () => {
+            // 檢查是否選擇了現有詞彙組
+            const selectedItems = listContainer.querySelectorAll('.list-select-item[data-selected="true"]');
+            let selectedListId = null;
+            
+            if (selectedItems.length > 0) {
+                selectedListId = selectedItems[0].getAttribute('data-list-id');
+            } else if (newListInput.value.trim()) {
+                // 創建新詞彙組
+                const newList = {
+                    name: newListInput.value.trim(),
+                    icon: 'fas fa-book',
+                    createdAt: new Date().toISOString()
+                };
+                
+                try {
+                    selectedListId = await window.db.addWordList(newList);
+                    console.log('已創建新詞彙組:', newList.name, ', ID:', selectedListId);
+                    
+                    // 刷新詞彙組列表
+                    await initVocabLists();
+                } catch (error) {
+                    console.error('創建詞彙組失敗:', error);
+                    showNotification('創建詞彙組失敗: ' + error.message, 'error');
+                    document.body.removeChild(modalBackground);
+                    resolve(null);
+                    return;
+                }
+            } else {
+                // 未選擇詞彙組
+                alert('請選擇一個詞彙組或創建新詞彙組');
+                return;
+            }
+            
+            document.body.removeChild(modalBackground);
+            resolve(selectedListId);
+        });
+        
+        buttonContainer.appendChild(cancelButton);
+        buttonContainer.appendChild(importButton);
+        
+        // 組合模態框內容
+        modalContent.appendChild(modalTitle);
+        modalContent.appendChild(modalDescription);
+        modalContent.appendChild(listContainer);
+        modalContent.appendChild(newListContainer);
+        modalContent.appendChild(buttonContainer);
+        
+        modalBackground.appendChild(modalContent);
+        document.body.appendChild(modalBackground);
+    });
+}
+
+/**
+ * 選擇特定的詞彙組(用於匯入後自動選擇)
+ * @param {number} listId - 詞彙組ID
+ */
+function selectVocabList(listId) {
+    if (!listId) return;
+    
+    const listItems = document.querySelectorAll('.vocab-list-item');
+    listItems.forEach(item => {
+        const itemId = item.getAttribute('data-list-id');
+        if (itemId && parseInt(itemId) === parseInt(listId)) {
+            item.click();
+        }
+    });
 }
   
