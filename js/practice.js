@@ -964,7 +964,7 @@ function showFillQuestion(index) {
         letterHint.textContent = hint;
         letterHint.classList.add('hidden');
     }
-
+    
     // 生成填空句子
     const fillSentence = document.querySelector('.fill-sentence');
     if (fillSentence) {
@@ -985,11 +985,11 @@ function showFillQuestion(index) {
                     
                     // 聚焦填空輸入框
                     const fillBlank = document.getElementById('fillBlank');
-                    if (fillBlank) {
-                        fillBlank.value = '';
-                        fillBlank.disabled = false;
-                        fillBlank.focus();
-                    }
+    if (fillBlank) {
+        fillBlank.value = '';
+        fillBlank.disabled = false;
+        fillBlank.focus();
+    }
                 } else {
                     // API 生成失敗，顯示錯誤訊息
                     fillSentence.innerHTML = `

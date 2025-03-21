@@ -2121,31 +2121,17 @@ async function initImportExportFeatures() {
         });
     }
     
-    // 綁定導出 JSON 按鈕事件
-    const exportJsonBtn = document.getElementById('exportJsonBtn');
-    if (exportJsonBtn) {
+    // 綁定匯出詞彙按鈕事件
+    const exportBtn = document.getElementById('exportBtn');
+    if (exportBtn) {
         // 先移除舊的事件監聽器
-        const newExportJsonBtn = exportJsonBtn.cloneNode(true);
-        exportJsonBtn.parentNode.replaceChild(newExportJsonBtn, exportJsonBtn);
+        const newExportBtn = exportBtn.cloneNode(true);
+        exportBtn.parentNode.replaceChild(newExportBtn, exportBtn);
         
         // 添加新的事件監聽器
-        newExportJsonBtn.addEventListener('click', () => {
-            console.log('點擊匯出JSON按鈕');
-            exportVocabulary('json');
-        });
-    }
-    
-    // 綁定導出 CSV 按鈕事件
-    const exportCsvBtn = document.getElementById('exportCsvBtn');
-    if (exportCsvBtn) {
-        // 先移除舊的事件監聽器
-        const newExportCsvBtn = exportCsvBtn.cloneNode(true);
-        exportCsvBtn.parentNode.replaceChild(newExportCsvBtn, exportCsvBtn);
-        
-        // 添加新的事件監聽器
-        newExportCsvBtn.addEventListener('click', () => {
-            console.log('點擊匯出CSV按鈕');
-            exportVocabulary('csv');
+        newExportBtn.addEventListener('click', () => {
+            console.log('點擊匯出詞彙按鈕');
+            showExportDialog();
         });
     }
     
@@ -2284,12 +2270,13 @@ function addBasic2005ImportButton() {
 }
 
 /**
- * 匯出詞彙列表
+ * 匯出詞彙列表 (已棄用，請使用 exportSelectedVocabulary)
  * @param {string} format - 匯出格式（'json' 或 'csv'）
  * @param {Array} wordList - 要匯出的詞彙列表，如果未提供則匯出所有詞彙
+ * @deprecated 此函數已被棄用，請使用新的 exportSelectedVocabulary 函數
  */
 function exportVocabulary(format = 'json', wordList = null) {
-    console.log(`匯出詞彙，格式: ${format}, 鎖定狀態: ${isExporting}`);
+    console.log('警告: exportVocabulary 函數已棄用，請使用 exportSelectedVocabulary');
     
     // 如果已經在匯出中，防止重複調用
     if (isExporting) {
@@ -2301,64 +2288,12 @@ function exportVocabulary(format = 'json', wordList = null) {
         // 鎖定匯出狀態
         isExporting = true;
         
-        // 獲取要匯出的詞彙
-        const wordsToExport = wordList || filteredWords;
-        
-        if (!wordsToExport || wordsToExport.length === 0) {
-            console.error('沒有詞彙可匯出');
-            showNotification('沒有詞彙可匯出', 'error');
-        return;
-    }
-    
-    let content = '';
-        let filename = '';
-        let contentType = '';
-    
-        if (format === 'json') {
-            // 匯出為 JSON 格式
-            content = JSON.stringify(wordsToExport, null, 2);
-            filename = `vocabulary_export_${new Date().toISOString().slice(0, 10)}.json`;
-            contentType = 'application/json';
-        } else if (format === 'csv') {
-            // 匯出為 CSV 格式
-            const header = ['id', 'word', 'phonetic', 'partOfSpeech', 'meaning', 'examples', 'status', 'createdAt', 'updatedAt'];
-            
-            // 創建 CSV 內容
-            const csvRows = wordsToExport.map(word => {
-                return header.map(field => {
-                    let value = word[field];
-                    
-                    // 處理特殊字段
-                    if (field === 'examples' && Array.isArray(value)) {
-                        value = value.join('; ');
-                    }
-                    
-                    // 處理包含逗號或換行的字段
-                    if (typeof value === 'string' && (value.includes(',') || value.includes('\n') || value.includes('"'))) {
-                        value = `"${value.replace(/"/g, '""')}"`;
-                    }
-                    
-                    return value || '';
-                }).join(',');
-            });
-            
-            // 添加標題行
-            csvRows.unshift(header.join(','));
-            
-            content = csvRows.join('\n');
-            filename = `vocabulary_export_${new Date().toISOString().slice(0, 10)}.csv`;
-            contentType = 'text/csv';
+        // 使用新的函數進行匯出
+        if (wordList) {
+            exportSelectedVocabulary('custom', '自定義匯出', format);
         } else {
-            console.error('不支持的匯出格式:', format);
-            showNotification(`不支持的匯出格式: ${format}`, 'error');
-            return;
+            exportSelectedVocabulary('filtered', '目前過濾結果', format);
         }
-        
-        // 下載文件
-        downloadWithCreateElement(content, filename, contentType);
-        
-        console.log(`已匯出 ${wordsToExport.length} 個詞彙為 ${format} 格式`);
-        showNotification(`已匯出 ${wordsToExport.length} 個詞彙`, 'success');
     } catch (error) {
         console.error('匯出詞彙失敗:', error);
         showNotification('匯出詞彙失敗: ' + error.message, 'error');
@@ -2366,8 +2301,7 @@ function exportVocabulary(format = 'json', wordList = null) {
         // 釋放匯出鎖定
         setTimeout(() => {
             isExporting = false;
-            console.log('匯出鎖定已釋放');
-        }, 500); // 添加短暫延遲，確保用戶不會立即再次點擊
+        }, 500);
     }
 }
 
@@ -2526,7 +2460,7 @@ async function importVocabulary(file) {
         showNotification('匯入詞彙失敗: ' + error.message, 'error');
     } finally {
         // 解除鎖定狀態
-        isImporting = false;
+            isImporting = false;
     }
 }
 
@@ -2690,11 +2624,11 @@ async function processImportedWords(words, listId) {
             
             try {
                 // 檢查單字是否已存在
-                const existingWord = existingWords.find(w => w.word.toLowerCase() === word.word.toLowerCase());
+        const existingWord = existingWords.find(w => w.word.toLowerCase() === word.word.toLowerCase());
                 
                 let wordId;
-                
-                if (existingWord) {
+        
+        if (existingWord) {
                     // 如果單字已存在，只需更新它的資訊
                     wordId = existingWord.id;
                     
@@ -2710,9 +2644,9 @@ async function processImportedWords(words, listId) {
                     // 更新單字
                     await window.db.updateWord(updatedWord);
                     updatedCount++;
-                } else {
+        } else {
                     // 如果單字不存在，創建新單字
-                    const newWord = {
+            const newWord = {
                         word: word.word,
                         phonetic: word.phonetic || '',
                         partOfSpeech: word.partOfSpeech || '',
@@ -4497,5 +4431,393 @@ function selectVocabList(listId) {
             item.click();
         }
     });
+}
+
+/**
+ * 顯示匯出詞彙對話框
+ */
+async function showExportDialog() {
+    console.log('顯示匯出詞彙對話框');
+    
+    // 如果已經在導出中，防止重複調用
+    if (isExporting) {
+        console.log('匯出操作正在進行中，忽略重複調用');
+        return;
+    }
+    
+    try {
+        // 添加模態對話框的樣式
+        const modalStyleId = 'export-modal-style';
+        if (!document.getElementById(modalStyleId)) {
+            const style = document.createElement('style');
+            style.id = modalStyleId;
+            style.textContent = `
+                .modal-container {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background-color: rgba(0, 0, 0, 0.5);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    z-index: 1000;
+                }
+                
+                .modal-content {
+                    background-color: white;
+                    padding: 20px;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+                    max-height: 80vh;
+                    overflow-y: auto;
+                }
+                
+                .export-list-item:hover {
+                    background-color: #f5f5f5;
+                }
+                
+                .export-list-item[data-selected="true"] {
+                    background-color: #e3f2fd;
+                    color: #1565c0;
+                    font-weight: bold;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        // 創建對話框容器
+        const dialogContainer = document.createElement('div');
+        dialogContainer.className = 'modal-container';
+        
+        // 創建對話框內容
+        const dialogContent = document.createElement('div');
+        dialogContent.className = 'modal-content';
+        dialogContent.style.width = '500px';
+        dialogContent.style.maxWidth = '90%';
+        
+        // 對話框標題
+        const title = document.createElement('h3');
+        title.textContent = '匯出詞彙';
+        dialogContent.appendChild(title);
+        
+        // 簡短說明
+        const description = document.createElement('p');
+        description.textContent = '請選擇要匯出的詞彙表和匯出格式：';
+        dialogContent.appendChild(description);
+        
+        // 詞彙表選擇區域
+        const listSelectionContainer = document.createElement('div');
+        listSelectionContainer.className = 'list-selection-container';
+        listSelectionContainer.style.maxHeight = '250px';
+        listSelectionContainer.style.overflowY = 'auto';
+        listSelectionContainer.style.marginBottom = '20px';
+        listSelectionContainer.style.border = '1px solid #eee';
+        listSelectionContainer.style.borderRadius = '4px';
+        listSelectionContainer.style.padding = '10px';
+        
+        // 獲取所有詞彙表
+        let vocabLists = [];
+        
+        // 添加預設選項
+        vocabLists.push({ id: 'all', name: '所有單字' });
+        vocabLists.push({ id: 'notLearned', name: '未學習' });
+        vocabLists.push({ id: 'learning', name: '學習中' });
+        vocabLists.push({ id: 'mastered', name: '已掌握' });
+        vocabLists.push({ id: 'filtered', name: '目前過濾結果' });
+        
+        // 添加分隔線
+        const separator = document.createElement('div');
+        separator.style.width = '100%';
+        separator.style.borderBottom = '1px solid #ddd';
+        separator.style.margin = '10px 0';
+        
+        // 從資料庫獲取自定義詞彙表
+        if (window.db && typeof window.db.getAllWordLists === 'function') {
+            const customLists = await window.db.getAllWordLists();
+            if (customLists && customLists.length > 0) {
+                vocabLists.push({ id: 'separator', name: '自定義詞彙表', isSeparator: true });
+                vocabLists = vocabLists.concat(customLists);
+            }
+        }
+        
+        // 創建詞彙表選項
+        let selectedListItem = null;
+        
+        vocabLists.forEach(list => {
+            if (list.isSeparator) {
+                // 如果是分隔線，添加標題
+                const separatorTitle = document.createElement('div');
+                separatorTitle.textContent = list.name;
+                separatorTitle.style.fontWeight = 'bold';
+                separatorTitle.style.margin = '10px 0 5px 0';
+                separatorTitle.style.color = '#666';
+                listSelectionContainer.appendChild(separatorTitle);
+                return;
+            }
+            
+            const listItem = document.createElement('div');
+            listItem.className = 'export-list-item';
+            listItem.textContent = list.name;
+            listItem.dataset.listId = list.id;
+            listItem.style.padding = '8px 10px';
+            listItem.style.margin = '5px 0';
+            listItem.style.borderRadius = '4px';
+            listItem.style.cursor = 'pointer';
+            listItem.style.transition = 'background-color 0.2s';
+            
+            // 添加滑鼠懸停效果
+            listItem.addEventListener('mouseover', () => {
+                if (listItem !== selectedListItem) {
+                    listItem.style.backgroundColor = '#f5f5f5';
+                }
+            });
+            
+            listItem.addEventListener('mouseout', () => {
+                if (listItem !== selectedListItem) {
+                    listItem.style.backgroundColor = '';
+                }
+            });
+            
+            // 添加點擊事件
+            listItem.addEventListener('click', () => {
+                // 清除之前的選擇
+                if (selectedListItem) {
+                    selectedListItem.style.backgroundColor = '';
+                    selectedListItem.style.color = '';
+                    selectedListItem.style.fontWeight = '';
+                    selectedListItem.dataset.selected = 'false';
+                }
+                
+                // 設置新的選擇
+                listItem.style.backgroundColor = '#e3f2fd';
+                listItem.style.color = '#1565c0';
+                listItem.style.fontWeight = 'bold';
+                listItem.dataset.selected = 'true';
+                selectedListItem = listItem;
+            });
+            
+            listSelectionContainer.appendChild(listItem);
+        });
+        
+        // 添加格式選擇區域
+        const formatContainer = document.createElement('div');
+        formatContainer.style.margin = '15px 0';
+        
+        const formatLabel = document.createElement('label');
+        formatLabel.textContent = '匯出格式: ';
+        formatLabel.style.marginRight = '10px';
+        formatContainer.appendChild(formatLabel);
+        
+        const formatSelect = document.createElement('select');
+        formatSelect.className = 'format-select';
+        formatSelect.style.padding = '5px 10px';
+        formatSelect.style.borderRadius = '4px';
+        formatSelect.style.border = '1px solid #ddd';
+        
+        const jsonOption = document.createElement('option');
+        jsonOption.value = 'json';
+        jsonOption.textContent = 'JSON 格式';
+        formatSelect.appendChild(jsonOption);
+        
+        const csvOption = document.createElement('option');
+        csvOption.value = 'csv';
+        csvOption.textContent = 'CSV 格式';
+        formatSelect.appendChild(csvOption);
+        
+        const txtOption = document.createElement('option');
+        txtOption.value = 'txt';
+        txtOption.textContent = 'TXT 格式 (序號,單字,詞性,意思)';
+        formatSelect.appendChild(txtOption);
+        
+        formatContainer.appendChild(formatSelect);
+        
+        // 按鈕區域
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.display = 'flex';
+        buttonContainer.style.justifyContent = 'flex-end';
+        buttonContainer.style.gap = '10px';
+        buttonContainer.style.marginTop = '20px';
+        
+        // 取消按鈕
+        const cancelButton = document.createElement('button');
+        cancelButton.className = 'btn secondary';
+        cancelButton.textContent = '取消';
+        cancelButton.addEventListener('click', () => {
+            document.body.removeChild(dialogContainer);
+        });
+        buttonContainer.appendChild(cancelButton);
+        
+        // 匯出按鈕
+        const exportButton = document.createElement('button');
+        exportButton.className = 'btn primary';
+        exportButton.textContent = '匯出';
+        exportButton.addEventListener('click', async () => {
+            // 獲取選中的詞彙表
+            const selectedList = document.querySelector('.export-list-item[data-selected="true"]');
+            if (!selectedList) {
+                showNotification('請選擇要匯出的詞彙表', 'error');
+                return;
+            }
+            
+            const listId = selectedList.dataset.listId;
+            const listName = selectedList.textContent;
+            const format = formatSelect.value;
+            
+            // 關閉對話框
+            document.body.removeChild(dialogContainer);
+            
+            // 根據選擇的詞彙表獲取要匯出的單字
+            await exportSelectedVocabulary(listId, listName, format);
+        });
+        buttonContainer.appendChild(exportButton);
+        
+        // 將所有元素添加到對話框
+        dialogContent.appendChild(listSelectionContainer);
+        dialogContent.appendChild(formatContainer);
+        dialogContent.appendChild(buttonContainer);
+        
+        // 將對話框添加到容器
+        dialogContainer.appendChild(dialogContent);
+        
+        // 將容器添加到文檔
+        document.body.appendChild(dialogContainer);
+        
+        // 選擇預設項目 (目前過濾結果)
+        const defaultItem = document.querySelector('.export-list-item[data-list-id="filtered"]');
+        if (defaultItem) {
+            defaultItem.click();
+        }
+        
+    } catch (error) {
+        console.error('顯示匯出對話框失敗:', error);
+        showNotification('無法顯示匯出對話框: ' + error.message, 'error');
+    }
+}
+
+/**
+ * 匯出選中的詞彙表
+ * @param {string} listId - 詞彙表ID
+ * @param {string} listName - 詞彙表名稱
+ * @param {string} format - 匯出格式
+ */
+async function exportSelectedVocabulary(listId, listName, format) {
+    console.log(`匯出詞彙表: ${listName}, ID: ${listId}, 格式: ${format}`);
+    
+    // 如果已經在匯出中，防止重複調用
+    if (isExporting) {
+        console.log('匯出操作正在進行中，忽略重複調用');
+        return;
+    }
+    
+    try {
+        // 鎖定匯出狀態
+        isExporting = true;
+        
+        // 顯示載入中狀態
+        showNotification('正在準備匯出資料...', 'info');
+        
+        // 根據詞彙表ID獲取要匯出的詞彙
+        let wordsToExport = [];
+        
+        if (listId === 'all') {
+            // 所有單字
+            wordsToExport = await window.db.getAllWords();
+        } else if (listId === 'notLearned') {
+            // 未學習單字
+            wordsToExport = await window.db.getWordsByStatus('notLearned');
+        } else if (listId === 'learning') {
+            // 學習中單字
+            wordsToExport = await window.db.getWordsByStatus('learning');
+        } else if (listId === 'mastered') {
+            // 已掌握單字
+            wordsToExport = await window.db.getWordsByStatus('mastered');
+        } else if (listId === 'filtered') {
+            // 目前過濾結果
+            wordsToExport = filteredWords;
+        } else {
+            // 自定義詞彙表
+            wordsToExport = await window.db.getWordsInList(listId);
+        }
+        
+        // 檢查是否有單字可匯出
+        if (!wordsToExport || wordsToExport.length === 0) {
+            console.error('沒有詞彙可匯出');
+            showNotification('所選詞彙表中沒有可匯出的詞彙', 'error');
+            isExporting = false;
+            return;
+        }
+        
+        let content = '';
+        let filename = '';
+        let contentType = '';
+        
+        if (format === 'json') {
+            // 匯出為 JSON 格式
+            content = JSON.stringify(wordsToExport, null, 2);
+            filename = `${listName}_${new Date().toISOString().slice(0, 10)}.json`;
+            contentType = 'application/json';
+        } else if (format === 'csv') {
+            // 匯出為 CSV 格式
+            const header = ['id', 'word', 'phonetic', 'partOfSpeech', 'meaning', 'examples', 'status', 'createdAt', 'updatedAt'];
+            
+            // 創建 CSV 內容
+            const csvRows = wordsToExport.map(word => {
+                return header.map(field => {
+                    let value = word[field];
+                    
+                    // 處理特殊字段
+                    if (field === 'examples' && Array.isArray(value)) {
+                        value = value.join('; ');
+                    }
+                    
+                    // 處理包含逗號或換行的字段
+                    if (typeof value === 'string' && (value.includes(',') || value.includes('\n') || value.includes('"'))) {
+                        value = `"${value.replace(/"/g, '""')}"`;
+                    }
+                    
+                    return value || '';
+                }).join(',');
+            });
+            
+            // 添加標題行
+            csvRows.unshift(header.join(','));
+            
+            content = csvRows.join('\n');
+            filename = `${listName}_${new Date().toISOString().slice(0, 10)}.csv`;
+            contentType = 'text/csv';
+        } else if (format === 'txt') {
+            // 匯出為 TXT 格式 (序號,單字,詞性,意思)
+            let txtRows = [];
+            
+            // 添加每一行的內容
+            for (let i = 0; i < wordsToExport.length; i++) {
+                const word = wordsToExport[i];
+                const row = `${i + 1},${word.word},${word.partOfSpeech || ''},${word.meaning || ''}`;
+                txtRows.push(row);
+            }
+            
+            content = txtRows.join('\n');
+            filename = `${listName}_${new Date().toISOString().slice(0, 10)}.txt`;
+            contentType = 'text/plain';
+        } else {
+            throw new Error(`不支持的匯出格式: ${format}`);
+        }
+        
+        // 下載文件
+        downloadWithCreateElement(content, filename, contentType);
+        
+        console.log(`已匯出 ${wordsToExport.length} 個詞彙為 ${format} 格式`);
+        showNotification(`已成功匯出 ${wordsToExport.length} 個詞彙到 ${filename}`, 'success');
+    } catch (error) {
+        console.error('匯出詞彙失敗:', error);
+        showNotification('匯出詞彙失敗: ' + error.message, 'error');
+    } finally {
+        // 釋放匯出鎖定
+        setTimeout(() => {
+            isExporting = false;
+        }, 500);
+  }
 }
   
