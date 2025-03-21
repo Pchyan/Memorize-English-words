@@ -11,7 +11,7 @@
         "sdk_build": false,
         "uncompressed_folder": false,
         "whitelist": "",
-        "windows-x32": true,
+        "windows-x32": false,
         "windows-x64": true
     }
 }

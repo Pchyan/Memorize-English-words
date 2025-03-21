@@ -1357,75 +1357,93 @@ function showPhoneticFormatHint(inputElement) {
  * 新增單字
  */
 async function addNewWord() {
-    const wordInput = document.getElementById('newWord');
-    const phoneticInput = document.getElementById('newPhonetic');
-    const meaningInput = document.getElementById('newMeaning');
-    const exampleInput = document.getElementById('newExample');
-    const partOfSpeechInput = document.getElementById('newPartOfSpeech');
-    
-    const word = wordInput.value.trim();
-    const phonetic = phoneticInput.value.trim();
-    const meaning = meaningInput.value.trim();
-    const example = exampleInput.value.trim();
-    const partOfSpeech = partOfSpeechInput.value.trim();
-    
-    if (!word || !meaning) {
-        showNotification('請填寫單字和中文解釋', 'error');
-        return;
-    }
-    
-    // 驗證音標
-    const phoneticValidation = validatePhonetic(phonetic);
-    if (!phoneticValidation.isValid) {
-        showNotification(phoneticValidation.message, 'warning');
-        phoneticInput.focus();
-        showPhoneticFormatHint(phoneticInput);
-        return;
-    }
+    console.log('執行 addNewWord 函數');
     
     try {
+        // 獲取表單數據
+        const wordInput = document.getElementById('newWord');
+        const phoneticInput = document.getElementById('newPhonetic');
+        const meaningInput = document.getElementById('newMeaning');
+        const examplesInput = document.getElementById('newExamples');
+        const partOfSpeechInput = document.getElementById('newPartOfSpeech');
+        const statusInput = document.getElementById('newStatus');
+        
+        if (!wordInput || !meaningInput) {
+            console.error('找不到必要的表單元素');
+            showNotification('表單元素缺失，請重新嘗試', 'error');
+            return;
+        }
+        
+        const word = wordInput.value.trim();
+        const phonetic = phoneticInput ? phoneticInput.value.trim() : '';
+        const meaning = meaningInput.value.trim();
+        const examples = examplesInput ? examplesInput.value.trim() : '';
+        const partOfSpeech = partOfSpeechInput ? partOfSpeechInput.value : '';
+        const status = statusInput ? statusInput.value : 'notLearned';
+        
+        console.log('表單數據:', { word, phonetic, meaning, examples, partOfSpeech, status });
+        
+        if (!word || !meaning) {
+            showNotification('請填寫單字和中文解釋', 'error');
+            return;
+        }
+        
+        // 驗證音標
+        if (phonetic) {
+            const phoneticValidation = validatePhonetic(phonetic);
+            if (!phoneticValidation.isValid) {
+                showNotification(phoneticValidation.message, 'warning');
+                phoneticInput.focus();
+                showPhoneticFormatHint(phoneticInput);
+                return;
+            }
+        }
+        
         // 如果沒有填寫音標，自動獲取
         let finalPhonetic = phonetic;
         if (!finalPhonetic) {
-            finalPhonetic = await getCambridgePhonetic(word);
-            if (finalPhonetic) {
-                // 再次驗證獲取的音標
-                const autoPhoneticValidation = validatePhonetic(finalPhonetic);
-                if (!autoPhoneticValidation.isValid) {
-                    console.warn('自動獲取的音標格式不正確:', finalPhonetic);
-                    finalPhonetic = '';
+            showNotification('正在獲取音標...', 'info');
+            try {
+                finalPhonetic = await getCambridgePhonetic(word);
+                if (finalPhonetic) {
+                    // 再次驗證獲取的音標
+                    const autoPhoneticValidation = validatePhonetic(finalPhonetic);
+                    if (!autoPhoneticValidation.isValid) {
+                        console.warn('自動獲取的音標格式不正確:', finalPhonetic);
+                        finalPhonetic = '';
+                    }
                 }
+            } catch (error) {
+                console.error('獲取音標失敗:', error);
+                showNotification('獲取音標失敗，將不使用音標', 'warning');
+                finalPhonetic = '';
             }
         }
+        
+        // 處理例句，將多行文本拆分為數組
+        const exampleArray = examples ? examples.split('\n').filter(line => line.trim() !== '') : [];
         
         const newWord = {
             word,
             phonetic: finalPhonetic,
             meaning,
-            example,
+            examples: exampleArray,
             partOfSpeech,
-            status: 'new',
+            status,
             createdAt: new Date().toISOString()
         };
         
+        console.log('準備添加單字:', newWord);
         await window.db.addWord(newWord);
         await loadVocabularyData();
         
-        // 清空輸入框
-        wordInput.value = '';
-        phoneticInput.value = '';
-        meaningInput.value = '';
-        exampleInput.value = '';
-        partOfSpeechInput.value = '';
-        
-        // 關閉模態框
-        const modal = document.getElementById('addWordModal');
-        modal.style.display = 'none';
+        // 清空輸入框並關閉模態框
+        hideAddWordModal();
         
         showNotification('單字新增成功', 'success');
     } catch (error) {
         console.error('新增單字失敗:', error);
-        showNotification('新增單字失敗', 'error');
+        showNotification('新增單字失敗: ' + (error.message || '未知錯誤'), 'error');
     }
 }
 
@@ -1839,6 +1857,22 @@ function showAddWordModal() {
         modal.classList.add('active');
         overlay.classList.add('active');
     }, 10);
+    
+    // 綁定關閉按鈕事件
+    const closeButtons = modal.querySelectorAll('.close-modal');
+    closeButtons.forEach(btn => {
+        btn.addEventListener('click', hideAddWordModal);
+    });
+    
+    // 點擊遮罩層關閉模態框
+    overlay.addEventListener('click', hideAddWordModal);
+    
+    // 按ESC鍵關閉模態框
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            hideAddWordModal();
+        }
+    });
 }
 
 /**
@@ -2778,10 +2812,34 @@ async function initVocabOperations() {
     // 初始化新增單字表單
     const addWordForm = document.getElementById('addWordForm');
     if (addWordForm) {
-        addWordForm.addEventListener('submit', (e) => {
+        console.log('找到 addWordForm 元素，添加提交事件');
+        
+        // 移除可能已經存在的事件監聽器
+        const newForm = addWordForm.cloneNode(true);
+        addWordForm.parentNode.replaceChild(newForm, addWordForm);
+        
+        // 重新添加提交事件
+        newForm.addEventListener('submit', function(e) {
+            console.log('表單提交被觸發');
             e.preventDefault();
             addNewWord();
         });
+        
+        // 找到提交按鈕並添加點擊事件（為了確保按鈕點擊也能觸發操作）
+        const submitBtn = newForm.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            console.log('找到提交按鈕');
+            submitBtn.addEventListener('click', function(e) {
+                console.log('提交按鈕被點擊');
+                // 如果不是通過表單提交，確保阻止默認行為並調用函數
+                if (e.type === 'click') {
+                    e.preventDefault();
+                    addNewWord();
+                }
+            });
+        } else {
+            console.error('找不到提交按鈕');
+        }
         
         // 添加發音測試按鈕事件
         const testPronounceBtn = document.createElement('button');
@@ -2797,14 +2855,14 @@ async function initVocabOperations() {
             }
         });
         
-        // 找到表單中的提交按鈕
-        const submitBtn = addWordForm.querySelector('button[type="submit"]');
-        if (submitBtn) {
-            // 在提交按鈕前插入測試發音按鈕
-            submitBtn.parentNode.insertBefore(testPronounceBtn, submitBtn);
-    } else {
-            // 如果找不到提交按鈕，則直接添加到表單末尾
-            addWordForm.appendChild(testPronounceBtn);
+        // 找到表單中的操作區域
+        const formActions = newForm.querySelector('.form-actions');
+        if (formActions && formActions.firstChild) {
+            // 在第一個子元素（提交按鈕）前插入測試發音按鈕
+            formActions.insertBefore(testPronounceBtn, formActions.firstChild);
+        } else {
+            // 如果找不到操作區域，則添加到表單末尾
+            newForm.appendChild(testPronounceBtn);
         }
     } else {
         console.error('找不到 addWordForm 元素');
