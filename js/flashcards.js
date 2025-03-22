@@ -123,16 +123,52 @@ async function initFlashcards() {
     // 自動播放按鈕
     const autoPlayBtn = document.getElementById('autoPlayBtn');
     if (autoPlayBtn) {
+        // 移除現有的事件監聽器以防重複
+        autoPlayBtn.removeEventListener('click', toggleAutoPlay);
+        // 添加新的事件監聽器
         autoPlayBtn.addEventListener('click', toggleAutoPlay);
+        console.log('已為自動播放按鈕添加點擊事件監聽器');
+    } else {
+        console.error('找不到自動播放按鈕');
+    }
+    
+    // 添加打散順序按鈕
+    const controls = document.querySelector('#flashcards .controls');
+    if (controls) {
+        // 檢查是否已存在打散順序按鈕，避免重複添加
+        let shuffleBtn = document.getElementById('shuffleCardsBtn');
+        if (!shuffleBtn) {
+            shuffleBtn = document.createElement('button');
+            shuffleBtn.id = 'shuffleCardsBtn';
+            shuffleBtn.className = 'btn secondary';
+            shuffleBtn.innerHTML = '<i class="fas fa-random"></i> 打散順序';
+            shuffleBtn.addEventListener('click', shuffleCards);
+            
+            // 將按鈕添加到自動播放按鈕後面
+            if (autoPlayBtn && autoPlayBtn.parentNode) {
+                autoPlayBtn.parentNode.insertBefore(shuffleBtn, autoPlayBtn.nextSibling);
+                console.log('已添加打散順序按鈕');
+            } else {
+                controls.insertBefore(shuffleBtn, controls.firstChild);
+                console.log('已添加打散順序按鈕（添加為第一個子元素）');
+            }
+        }
+    } else {
+        console.error('找不到控制區元素');
     }
     
     // 詞彙選擇器
     const deckSelector = document.getElementById('deckSelector');
     if (deckSelector) {
-        deckSelector.addEventListener('change', async () => {
+        // 為了避免重複添加事件，先移除再添加
+        // 由於原事件是匿名函數，無法直接移除，所以需要重新綁定
+        deckSelector.addEventListener('change', async function deckSelectorChangeHandler() {
             const selectedDeck = deckSelector.value;
             await loadCardData(selectedDeck);
         });
+        console.log('已為詞彙選擇器添加變更事件監聽器');
+    } else {
+        console.error('找不到詞彙選擇器');
     }
     
     // 所有發音按鈕
@@ -3675,4 +3711,54 @@ function jumpToCard(targetIndex) {
     if (jumpToInput) {
         jumpToInput.value = '';
     }
+}
+
+// 在檔案結尾添加打散卡片的函數
+/**
+ * 打散卡片順序
+ */
+function shuffleCards() {
+    console.log('開始打散卡片順序...');
+    
+    if (cards.length <= 1) {
+        console.log('卡片數量不足，無需打散');
+        showNotification('卡片數量不足，無需打散', 'info');
+        return;
+    }
+    
+    // 保存當前顯示的卡片
+    const currentCard = cards[currentCardIndex];
+    
+    // 使用 Fisher-Yates 演算法打散卡片順序
+    cards = shuffleArray(cards);
+    console.log('卡片順序已打散');
+    
+    // 查找當前卡片在新數組中的位置
+    const newIndex = cards.findIndex(card => card.id === currentCard.id);
+    if (newIndex !== -1) {
+        currentCardIndex = newIndex;
+    } else {
+        currentCardIndex = 0;
+    }
+    
+    // 顯示當前卡片並更新計數器
+    showCard(currentCardIndex);
+    updateCardCounter();
+    
+    // 顯示通知
+    showNotification('卡片順序已隨機打散', 'success');
+}
+
+/**
+ * 打亂數組順序
+ * @param {Array} array - 要打亂的數組
+ * @returns {Array} - 打亂後的數組
+ */
+function shuffleArray(array) {
+    const newArray = [...array];
+    for (let i = newArray.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+    }
+    return newArray;
 }
