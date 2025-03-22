@@ -479,17 +479,34 @@ async function deleteVocabList(id) {
     }
     
     try {
+        // 先獲取該詞彙組中的所有單字
+        const wordsInList = await window.db.getWordsInList(parseInt(id));
+        console.log(`詞彙組 ${id} 中有 ${wordsInList ? wordsInList.length : 0} 個單字`);
+        
+        // 刪除詞彙組
         await window.db.deleteWordList(id);
         console.log('詞彙列表刪除成功');
+        
+        // 重新載入所有單字數據
+        await loadVocabularyData();
         
         // 更新詞彙列表顯示
         await initVocabLists();
         
+        // 強制重新計算所有計數
+        const allWords = await window.db.getAllWords() || [];
+        console.log(`重新計算後的總單字數: ${allWords.length}`);
+        
+        // 更新所有詞彙列表的計數
+        await updateVocabListCounts();
+        
         // 如果當前正在查看被刪除的列表，則切換到"所有單字"
         if (currentVocabList === id) {
             currentVocabList = 'all';
-            await loadVocabularyData();
         }
+        
+        // 更新顯示
+        displayVocabularyPage(currentPage);
         
         // 通知其他模組詞彙列表已更新
         document.dispatchEvent(new CustomEvent('vocabListsUpdated'));
@@ -510,13 +527,9 @@ async function updateVocabListCounts() {
     console.log('更新詞彙列表計數');
     
     try {
-        // 獲取所有詞彙組
-        const lists = await window.db.getAllWordLists();
-        if (!lists || lists.length === 0) return;
-        
         // 獲取所有單字
-        const allWords = await window.db.getAllWords();
-        if (!allWords || allWords.length === 0) return;
+        const allWords = await window.db.getAllWords() || [];
+        console.log(`總單字數: ${allWords.length}`);
         
         // 計算預設列表的計數
         const notLearnedWords = allWords.filter(word => word.status === 'notLearned' || word.status === 'new');
@@ -529,12 +542,20 @@ async function updateVocabListCounts() {
         updateCountDisplay('learning', learningWords.length);
         updateCountDisplay('mastered', masteredWords.length);
         
+        // 獲取所有詞彙組
+        const lists = await window.db.getAllWordLists();
+        if (!lists || lists.length === 0) {
+            console.log('沒有自定義詞彙組');
+            return;
+        }
+        
         // 更新每個詞彙組的計數
         let updated = false;
         for (const list of lists) {
             // 獲取該詞彙組中的單字數量
-            const wordsInList = await window.db.getWordsInList(list.id);
-            const count = wordsInList ? wordsInList.length : 0;
+            const wordsInList = await window.db.getWordsInList(list.id) || [];
+            const count = wordsInList.length;
+            console.log(`詞彙組 ${list.name}(ID: ${list.id}) 的單字數: ${count}`);
             
             // 更新DOM中的計數顯示
             updateCountDisplay(list.id, count);
@@ -1627,9 +1648,14 @@ async function deleteWord(wordId) {
         
         // 重新載入詞彙數據
         await loadVocabularyData();
-            
-            // 顯示成功訊息
-        showNotification(`單字「${wordName}」已成功刪除`, 'success');
+        
+        // 更新詞彙表計數
+        await updateVocabListCounts();
+        
+        // 更新顯示
+        displayVocabularyPage(currentPage);
+        
+        showNotification(`單字 "${wordName}" 已刪除`, 'success');
     } catch (error) {
         console.error('刪除單字失敗:', error);
         showNotification('刪除單字失敗，請稍後再試', 'error');
@@ -2927,15 +2953,15 @@ async function initVocabOperations() {
         });
         
         // 添加發音測試按鈕事件
-        const testPronounceBtn = document.createElement('button');
-        testPronounceBtn.type = 'button';
-        testPronounceBtn.className = 'btn secondary test-pronunciation-btn';
-        testPronounceBtn.innerHTML = '<i class="fas fa-volume-up"></i> 測試發音';
-        testPronounceBtn.addEventListener('click', () => {
+        const editTestPronounceBtn = document.createElement('button');
+        editTestPronounceBtn.type = 'button';
+        editTestPronounceBtn.className = 'btn secondary test-pronunciation-btn';
+        editTestPronounceBtn.innerHTML = '<i class="fas fa-volume-up"></i> 測試發音';
+        editTestPronounceBtn.addEventListener('click', () => {
             const word = document.getElementById('editWord').value.trim();
             if (word) {
                 playPronunciation(word);
-    } else {
+            } else {
                 showNotification('請先輸入單字', 'warning');
             }
         });
@@ -2944,10 +2970,31 @@ async function initVocabOperations() {
         const submitBtn = editWordForm.querySelector('button[type="submit"]');
         if (submitBtn) {
             // 在提交按鈕前插入測試發音按鈕
-            submitBtn.parentNode.insertBefore(testPronounceBtn, submitBtn);
-            } else {
+            submitBtn.parentNode.insertBefore(editTestPronounceBtn, submitBtn);
+        } else {
             // 如果找不到提交按鈕，則直接添加到表單末尾
-            editWordForm.appendChild(testPronounceBtn);
+            editWordForm.appendChild(editTestPronounceBtn);
+        }
+        
+        // 添加獲取音標按鈕
+        const editGetPhoneticBtn = document.createElement('button');
+        editGetPhoneticBtn.type = 'button';
+        editGetPhoneticBtn.className = 'btn secondary get-phonetic-btn';
+        editGetPhoneticBtn.innerHTML = '<i class="fas fa-search"></i> 獲取音標';
+        editGetPhoneticBtn.addEventListener('click', async () => {
+            const word = document.getElementById('editWord').value.trim();
+            if (word) {
+                await autoFillWordInfo(word, true, 'edit');
+            } else {
+                showNotification('請先輸入單字', 'warning');
+            }
+        });
+        
+        // 找到音標輸入框的父元素
+        const editPhoneticGroup = editWordForm.querySelector('#editPhonetic').closest('.form-group');
+        if (editPhoneticGroup) {
+            // 在音標輸入框後添加獲取音標按鈕
+            editPhoneticGroup.appendChild(editGetPhoneticBtn);
         }
     } else {
         console.error('找不到 editWordForm 元素');
@@ -4969,7 +5016,19 @@ async function exportSelectedVocabulary(listId, listName, format) {
             wordsToExport = filteredWords;
         } else {
             // 自定義詞彙表
-            wordsToExport = await window.db.getWordsInList(listId);
+            try {
+                console.log(`正在獲取詞彙表 ${listId} 的單字...`);
+                wordsToExport = await window.db.getWordsInList(parseInt(listId));
+                if (!wordsToExport) {
+                    throw new Error('無法獲取詞彙表數據');
+                }
+                console.log(`成功獲取詞彙表數據，共 ${wordsToExport.length} 個單字`);
+            } catch (error) {
+                console.error('獲取詞彙表數據失敗:', error);
+                showNotification('獲取詞彙表數據失敗: ' + error.message, 'error');
+                isExporting = false;
+                return;
+            }
         }
         
         // 檢查是否有單字可匯出

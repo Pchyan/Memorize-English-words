@@ -167,9 +167,9 @@ async function initLearningCurveChart() {
         const history = await window.db.getLearningHistory();
         if (!history || history.length === 0) {
             chartCanvas.innerHTML = '<div class="no-data">尚無學習記錄</div>';
-            return;
-        }
-        
+        return;
+    }
+    
         // 按日期分組並計算每日學習量
         const dailyData = {};
         history.forEach(record => {
@@ -279,13 +279,13 @@ async function initAchievementSystem() {
             const isUnlocked = achievement.condition(stats);
             return `
                 <div class="achievement-card ${isUnlocked ? '' : 'locked'}">
-                    <div class="achievement-icon">
-                        <i class="fas ${achievement.icon}"></i>
+            <div class="achievement-icon">
+                <i class="fas ${achievement.icon}"></i>
                     </div>
                     <div class="achievement-title">${achievement.title}</div>
                     <div class="achievement-description">${achievement.description}</div>
-                </div>
-            `;
+            </div>
+        `;
         }).join('');
         
     } catch (error) {
@@ -305,9 +305,9 @@ async function initLearningJournal() {
         const journal = await window.db.getLearningJournal();
         if (!journal || journal.length === 0) {
             container.innerHTML = '<div class="no-data">尚無學習日誌</div>';
-            return;
-        }
-        
+        return;
+    }
+    
         // 顯示最近的10條日誌
         container.innerHTML = journal
             .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
@@ -350,10 +350,10 @@ function showAddJournalDialog() {
                     <button class="btn secondary close-modal">取消</button>
                     <button class="btn primary" id="saveJournalBtn">儲存</button>
                 </div>
+                </div>
             </div>
-        </div>
-    `;
-    
+        `;
+        
     document.body.appendChild(dialog);
     
     // 綁定事件
@@ -367,14 +367,14 @@ function showAddJournalDialog() {
     const saveButton = dialog.querySelector('#saveJournalBtn');
     saveButton.addEventListener('click', async () => {
         const content = dialog.querySelector('#journalContent').value.trim();
-        if (!content) {
+    if (!content) {
             showNotification('請輸入日誌內容', 'error');
-            return;
-        }
-        
+        return;
+    }
+    
         try {
             await window.db.addJournalEntry({
-                content,
+        content,
                 timestamp: new Date().toISOString()
             });
             
