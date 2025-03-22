@@ -128,19 +128,18 @@
                     <div class="flashcard" id="mainFlashcard">
                         <div class="flashcard-inner">
                             <div class="flashcard-front">
-                                <h3 id="wordFront">Apple</h3>
-                                <div class="phonetic">/ˈæp.əl/</div>
+                                <h3 id="wordFront">載入中...</h3>
+                                <div class="phonetic"></div>
                                 <button class="pronunciation-btn"><i class="fas fa-volume-up"></i></button>
                             </div>
                             <div class="flashcard-back">
-                                <h3 id="wordBack">蘋果</h3>
+                                <h3 id="wordBack"></h3>
                                 <div class="word-details">
-                                    <p class="part-of-speech">名詞</p>
-                                    <p class="definition">一種常見的圓形水果，外皮為紅色、綠色或黃色，果肉脆甜多汁。</p>
+                                    <p class="part-of-speech"></p>
+                                    <p class="definition"></p>
                                     <div class="examples">
                                         <h4>例句：</h4>
-                                        <p>I eat an apple every day. (我每天吃一個蘋果。)</p>
-                                        <p>The apple tree in our garden bears fruit each autumn. (我們花園裡的蘋果樹每年秋天都會結果。)</p>
+                                        <p></p>
                                     </div>
                                 </div>
                             </div>
@@ -149,10 +148,10 @@
                     
                     <div class="flashcard-navigation">
                         <button id="prevCardBtn" class="nav-btn"><i class="fas fa-chevron-left"></i></button>
-                        <div class="card-counter">1 / 20</div>
+                        <div class="card-counter">0 / 0</div>
                         <button id="nextCardBtn" class="nav-btn"><i class="fas fa-chevron-right"></i></button>
                         <div class="jump-to-container">
-                            <input type="number" id="jumpToInput" min="1" placeholder="1-20" class="jump-to-input">
+                            <input type="number" id="jumpToInput" min="1" placeholder="1-0" class="jump-to-input">
                             <button id="jumpToBtn" class="jump-to-btn">跳轉</button>
                         </div>
                     </div>
@@ -168,19 +167,16 @@
                 <!-- 聯想法面板 -->
                 <div class="learning-panel" id="associationPanel">
                     <div class="panel-header">
-                        <h3>建立聯想 - <span id="assocWord">Apple</span></h3>
+                        <h3>建立聯想 - <span id="assocWord"></span></h3>
                         <button class="close-panel-btn"><i class="fas fa-times"></i></button>
                     </div>
                     <div class="panel-content">
                         <p>為了更容易記住這個單字，試著建立個人聯想：</p>
-                        <textarea id="assocInput" placeholder="例如：蘋果是紅色的圓形水果，想像咬一口時的聲音「喀滋」"></textarea>
+                        <textarea id="assocInput" placeholder="例如：想像一個與這個單字相關的圖像或故事"></textarea>
                         <div class="suggestion-section">
                             <h4>建議聯想：</h4>
                             <div class="suggestions">
-                                <button class="suggestion-btn">紅色的水果</button>
-                                <button class="suggestion-btn">像「A」一樣是單字的開頭</button>
-                                <button class="suggestion-btn">含有「p」的雙重發音</button>
-                                <button class="suggestion-btn">想像一個蘋果樹</button>
+                                <!-- 動態生成的聯想建議 -->
                             </div>
                         </div>
                         <button class="btn primary save-btn">儲存聯想</button>
@@ -190,20 +186,13 @@
                 <!-- 上下文面板 -->
                 <div class="learning-panel" id="contextPanel">
                     <div class="panel-header">
-                        <h3>上下文和詞組 - <span id="contextWord">Apple</span></h3>
+                        <h3>上下文和詞組 - <span id="contextWord"></span></h3>
                         <button class="close-panel-btn"><i class="fas fa-times"></i></button>
                     </div>
                     <div class="panel-content">
                         <div class="context-section">
                             <h4>常見用法：</h4>
-                            <div class="context-item">
-                                <p><strong>apple of one's eye</strong> - 心肝寶貝，摯愛</p>
-                                <p class="example">The little girl is the apple of her father's eye. (這個小女孩是她父親的心肝寶貝。)</p>
-                            </div>
-                            <div class="context-item">
-                                <p><strong>an apple a day keeps the doctor away</strong> - 一日一蘋果，醫生遠離我</p>
-                                <p class="example">My grandmother always says that an apple a day keeps the doctor away. (我奶奶總是說一日一蘋果，醫生遠離我。)</p>
-                            </div>
+                            <!-- 動態生成的用法 -->
                         </div>
                         <div class="practice-section">
                             <h4>造句練習：</h4>
@@ -221,24 +210,20 @@
                 <!-- 同義詞/反義詞面板 -->
                 <div class="learning-panel" id="synonymsPanel">
                     <div class="panel-header">
-                        <h3>同義詞與反義詞 - <span id="synWord">Apple</span></h3>
+                        <h3>同義詞與反義詞 - <span id="synWord"></span></h3>
                         <button class="close-panel-btn"><i class="fas fa-times"></i></button>
                     </div>
                     <div class="panel-content">
                         <div class="synonyms-section">
                             <h4>同義詞：</h4>
                             <div class="word-pills">
-                                <span class="word-pill">fruit <i class="fas fa-volume-up"></i></span>
-                                <span class="word-pill">pomme <i class="fas fa-volume-up"></i></span>
+                                <!-- 動態生成的同義詞 -->
                             </div>
                         </div>
                         <div class="related-words-section">
                             <h4>相關詞彙：</h4>
                             <div class="word-pills">
-                                <span class="word-pill">pear <i class="fas fa-volume-up"></i></span>
-                                <span class="word-pill">orange <i class="fas fa-volume-up"></i></span>
-                                <span class="word-pill">fruit <i class="fas fa-volume-up"></i></span>
-                                <span class="word-pill">tree <i class="fas fa-volume-up"></i></span>
+                                <!-- 動態生成的相關詞彙 -->
                             </div>
                         </div>
                         <div class="word-map">
@@ -454,103 +439,103 @@
             <div class="container">
                 <div class="page-header">
                     <h2>學習進度</h2>
-                    <div class="controls">
-                        <select id="timeRangeSelect">
-                            <option value="week">本週</option>
-                            <option value="month">本月</option>
-                            <option value="year">本年</option>
+                    <div class="time-range-selector">
+                        <select id="statsTimeRange">
                             <option value="all">所有時間</option>
+                            <option value="month">最近一個月</option>
+                            <option value="week">最近一週</option>
+                            <option value="today">今天</option>
                         </select>
-                        <button class="btn secondary" id="exportProgressBtn"><i class="fas fa-download"></i> 匯出報告</button>
                     </div>
                 </div>
-                
-                <div class="progress-overview">
-                    <div class="stat-card">
-                        <h3>已學習單字</h3>
-                        <div class="stat-number">120</div>
-                        <div class="stat-progress">
-                            <div class="progress-bar" style="width: 60%"></div>
-                            <div class="progress-text">目標: 200</div>
+
+                <!-- 統計摘要卡片 -->
+                <div class="stats-grid">
+                    <div class="stats-card">
+                        <div class="stats-icon">
+                            <i class="fas fa-book"></i>
+                        </div>
+                        <div class="stats-content">
+                            <h3>詞彙量</h3>
+                            <div class="stats-value" id="totalWordsValue">0</div>
+                            <div class="progress-bar">
+                                <!-- 進度條將由JavaScript動態更新 -->
+                            </div>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <h3>已掌握單字</h3>
-                        <div class="stat-number">75</div>
-                        <div class="stat-percentage">62.5%</div>
+                    <div class="stats-card">
+                        <div class="stats-icon">
+                            <i class="fas fa-fire"></i>
+                        </div>
+                        <div class="stats-content">
+                            <h3>連續學習</h3>
+                            <div class="stats-value" id="streakValue">0</div>
+                            <div class="stats-label">天</div>
+                        </div>
                     </div>
-                    <div class="stat-card">
-                        <h3>學習天數</h3>
-                        <div class="stat-number">14</div>
-                        <div class="stat-streak">連續學習: 5天</div>
+                    <div class="stats-card">
+                        <div class="stats-icon">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="stats-content">
+                            <h3>今日學習</h3>
+                            <div class="stats-value" id="todayLearnedValue">0</div>
+                            <div class="stats-label">個單字</div>
+                        </div>
                     </div>
-                    <div class="stat-card">
-                        <h3>今日目標</h3>
-                        <div class="stat-number">7/10</div>
-                        <div class="stat-progress">
-                            <div class="progress-bar" style="width: 70%"></div>
-                            <div class="progress-text">再學習3個</div>
+                    <div class="stats-card">
+                        <div class="stats-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="stats-content">
+                            <h3>平均學習</h3>
+                            <div class="stats-value" id="averagePerDayValue">0</div>
+                            <div class="stats-label">單字/天</div>
                         </div>
                     </div>
                 </div>
-                
-                <div class="progress-charts">
+
+                <!-- 學習曲線圖表 -->
+                <div class="chart-section">
+                    <div class="section-header">
+                        <h3>學習曲線</h3>
+                        <select id="chartTimeRange">
+                            <option value="week">最近一週</option>
+                            <option value="month">最近一個月</option>
+                            <option value="year">最近一年</option>
+                        </select>
+                    </div>
                     <div class="chart-container">
-                        <h3>每日學習量</h3>
-                        <div class="chart" id="dailyChart">
-                            <!-- 這裡將使用JS生成圖表 -->
-                            <div class="placeholder-chart">每日學習量圖表將在這裡顯示</div>
-                        </div>
-                    </div>
-                    <div class="chart-container">
-                        <h3>學習分佈</h3>
-                        <div class="chart" id="distributionChart">
-                            <!-- 這裡將使用JS生成圖表 -->
-                            <div class="placeholder-chart">學習分佈圖表將在這裡顯示</div>
-                        </div>
+                        <canvas id="learningCurveChart"></canvas>
                     </div>
                 </div>
-                
-                <div class="learning-calendar">
-                    <h3>學習日曆</h3>
-                    <div class="calendar-container" id="learningCalendar">
-                        <!-- 這裡將使用JS生成日曆 -->
-                        <div class="placeholder-calendar">學習日曆將在這裡顯示</div>
+
+                <!-- 成就系統 -->
+                <div class="achievements-section">
+                    <h3>學習成就</h3>
+                    <div class="achievements-grid" id="achievementsContainer">
+                        <!-- 成就卡片將由JavaScript動態生成 -->
                     </div>
                 </div>
-                
-                <div class="learning-log">
-                    <h3>學習紀錄</h3>
-                    <div class="log-container">
-                        <div class="log-entry">
-                            <div class="log-date">2023年3月17日</div>
-                            <div class="log-content">
-                                <div class="log-activity">學習了10個新單字</div>
-                                <div class="log-details">完成了「商業英語」詞彙表的學習</div>
-                            </div>
-                        </div>
-                        <div class="log-entry">
-                            <div class="log-date">2023年3月16日</div>
-                            <div class="log-content">
-                                <div class="log-activity">複習了15個單字</div>
-                                <div class="log-details">完成了拼寫測驗，正確率85%</div>
-                            </div>
-                        </div>
-                        <div class="log-entry">
-                            <div class="log-date">2023年3月15日</div>
-                            <div class="log-content">
-                                <div class="log-activity">學習了8個新單字</div>
-                                <div class="log-details">完成了「日常用語」詞彙表的一部分</div>
-                            </div>
-                        </div>
+
+                <!-- 學習日誌 -->
+                <div class="journal-section">
+                    <div class="section-header">
+                        <h3>學習日誌</h3>
+                        <button class="btn secondary" id="addJournalBtn">
+                            <i class="fas fa-plus"></i> 新增記錄
+                        </button>
+                    </div>
+                    <div class="journal-list" id="journalContainer">
+                        <!-- 日誌條目將由JavaScript動態生成 -->
                     </div>
                 </div>
-                
-                <div class="daily-journal">
-                    <h3>學習日誌</h3>
-                    <div class="journal-container">
-                        <textarea id="journalEntry" placeholder="今天我使用了哪些新學的單字？遇到什麼困難？有什麼心得？..."></textarea>
-                        <button class="btn primary" id="saveJournalBtn">儲存日誌</button>
+
+                <!-- 活動日曆 -->
+                <div class="calendar-section">
+                    <h3>學習活動</h3>
+                    <div class="activity-calendar" id="activityCalendar">
+                        <!-- 活動日曆將由JavaScript動態生成 -->
                     </div>
                 </div>
             </div>

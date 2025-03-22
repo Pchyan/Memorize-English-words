@@ -1434,7 +1434,25 @@ async function addNewWord() {
         };
         
         console.log('準備添加單字:', newWord);
-        await window.db.addWord(newWord);
+        const wordId = await window.db.addWord(newWord);
+        
+        // 檢查是否有選定的詞彙表
+        const selectedList = document.querySelector('.vocab-list-item.active');
+        if (selectedList) {
+            const listId = selectedList.getAttribute('data-list-id');
+            // 確保不是預設的分類（all、notLearned、learning、mastered）
+            if (listId && !['all', 'notLearned', 'learning', 'mastered'].includes(listId)) {
+                console.log('將新單字添加到當前選定的詞彙表:', listId);
+                try {
+                    await window.db.addWordToList(wordId, parseInt(listId));
+                    console.log('成功將單字添加到詞彙表');
+                } catch (error) {
+                    console.error('將單字添加到詞彙表失敗:', error);
+                    showNotification('單字已新增，但添加到詞彙表失敗', 'warning');
+                }
+            }
+        }
+        
         await loadVocabularyData();
         
         // 清空輸入框並關閉模態框
@@ -3700,6 +3718,15 @@ async function addToWordList(wordId) {
         return;
     }
     
+    // 確保modalOverlay存在
+    let modalOverlay = document.getElementById('modalOverlay');
+    if (!modalOverlay) {
+        modalOverlay = document.createElement('div');
+        modalOverlay.id = 'modalOverlay';
+        modalOverlay.className = 'modal-overlay';
+        document.body.appendChild(modalOverlay);
+    }
+    
     // 創建模態框
     const modalId = 'addToListModal';
     let modal = document.getElementById(modalId);
@@ -3733,7 +3760,7 @@ async function addToWordList(wordId) {
     
     // 顯示模態框
     modal.classList.add('active');
-    document.getElementById('modalOverlay').classList.add('active');
+    modalOverlay.classList.add('active');
     document.body.classList.add('modal-open');
     
     // 載入詞彙列表選項
@@ -3772,7 +3799,7 @@ async function addToWordList(wordId) {
                     
                     // 關閉模態框
                     modal.classList.remove('active');
-                    document.getElementById('modalOverlay').classList.remove('active');
+                    modalOverlay.classList.remove('active');
                     document.body.classList.remove('modal-open');
                     
                     showNotification(`成功將「${word.word}」添加到「${list.name}」詞彙列表`, 'success');
@@ -3794,9 +3821,16 @@ async function addToWordList(wordId) {
     modal.querySelectorAll('.close-modal').forEach(btn => {
         btn.addEventListener('click', () => {
             modal.classList.remove('active');
-            document.getElementById('modalOverlay').classList.remove('active');
+            modalOverlay.classList.remove('active');
             document.body.classList.remove('modal-open');
         });
+    });
+    
+    // 點擊遮罩層關閉模態框
+    modalOverlay.addEventListener('click', () => {
+        modal.classList.remove('active');
+        modalOverlay.classList.remove('active');
+        document.body.classList.remove('modal-open');
     });
 }
 
@@ -3810,6 +3844,121 @@ function addWordListSelectModalStyles() {
     const styleElement = document.createElement('style');
     styleElement.id = 'wordListSelectModalStyles';
     styleElement.textContent = `
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+        
+        .modal-overlay.active {
+            display: block;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1001;
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        .modal.active {
+            display: block;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.2em;
+        }
+        
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            padding: 0;
+            color: #666;
+        }
+        
+        .close-modal:hover {
+            color: #000;
+        }
+        
+        .list-options {
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 15px 0;
+        }
+        
+        .list-option {
+            padding: 10px;
+            border: 1px solid #eee;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .list-option:hover {
+            background-color: #f5f5f5;
+            border-color: #ddd;
+        }
+        
+        .list-option .list-name {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .list-option .list-name i {
+            color: #666;
+        }
+        
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 20px;
+            gap: 10px;
+        }
+        
+        .secondary-btn {
+            padding: 8px 16px;
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .secondary-btn:hover {
+            background-color: #e5e5e5;
+        }
+        
+        body.modal-open {
+            overflow: hidden;
+        }
+        
         .word-lists-container {
             max-height: 300px;
             overflow-y: auto;
